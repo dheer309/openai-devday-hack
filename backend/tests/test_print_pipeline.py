@@ -4,7 +4,8 @@ from pathlib import Path
 import uuid
 
 import numpy as np
-import pymupdf
+from pypdf import PdfReader
+from reportlab.pdfbase.pdfmetrics import getAscentDescent, stringWidth
 import pytest
 import trimesh
 from fastapi.testclient import TestClient
@@ -19,6 +20,33 @@ from foldable.geometry import make_solid
 from foldable.models import DESIGN_ADAPTER, PrintError, REQUIRED_CHECKS
 
 EXAMPLES = Path(__file__).resolve().parents[1] / 'examples'
+
+
+def pdf_spans(page):
+    """Inspect actual PDF text operators using its declared standard fonts."""
+    spans = []
+    current = {'font': 'Helvetica', 'size': 7}
+    fonts = page['/Resources']['/Font']
+
+    def visitor(operator, args, cm, tm):
+        if operator == b'Tf':
+            current['font'] = str(fonts[args[0]]['/BaseFont']).lstrip('/')
+            current['size'] = float(args[1])
+        elif operator == b'Tj':
+            text = args[0] if isinstance(args[0], str) else bytes(args[0]).decode('cp1252')
+            size = current['size']
+            width = stringWidth(text, current['font'], size)
+            ascent, descent = getAscentDescent(current['font'], size)
+            coords = []
+            for x, y in ((0, descent), (width, descent), (width, ascent), (0, ascent)):
+                tx, ty = x * tm[0] + y * tm[2] + tm[4], x * tm[1] + y * tm[3] + tm[5]
+                coords.append((tx * cm[0] + ty * cm[2] + cm[4], tx * cm[1] + ty * cm[3] + cm[5]))
+            points = np.asarray(coords)
+            spans.append({'text': text, 'size': size,
+                          'bbox': [*points.min(axis=0), *points.max(axis=0)]})
+
+    page.extract_text(visitor_operand_before=visitor)
+    return spans
 
 
 @pytest.fixture(scope='module')
@@ -73,21 +101,21 @@ def test_real_export_geometry_artwork_and_page(rendered, name):
         local = (paper-net.placed[face].offset) @ net.placed[face].rotation
         reconstructed = panel.origin + local[:, :1]*panel.u + local[:, 1:]*panel.v
         np.testing.assert_allclose(reconstructed, world, atol=0.002)
-    with pymupdf.open(folder / 'net.pdf') as pdf:
-        assert len(pdf) == 1
-        page = pdf[0]
-        np.testing.assert_allclose([page.rect.width, page.rect.height], np.array([210, 297])*72/25.4, atol=0.01)
-        assert design.name in page.get_text()
-        numbers = [span['text'] for block in page.get_text('dict')['blocks']
-                   for line in block.get('lines', []) for span in line['spans']
-                   if span['text'].isdigit() and abs(span['size']-6.5) < .01]
-        for seam in net.seams:
-            assert numbers.count(str(seam.number)) == 2
-        for block in page.get_text('dict')['blocks']:
-            if 'lines' in block:
-                for line in block['lines']:
-                    for span in line['spans']:
-                        assert page.rect.contains(pymupdf.Rect(span['bbox']))
+    pdf = PdfReader(folder / 'net.pdf')
+    assert len(pdf.pages) == 1
+    page = pdf.pages[0]
+    np.testing.assert_allclose([float(page.mediabox.width), float(page.mediabox.height)],
+                              np.array([210, 297])*72/25.4, atol=0.01)
+    assert design.name in page.extract_text()
+    spans = pdf_spans(page)
+    numbers = [span['text'] for span in spans
+               if span['text'].isdigit() and abs(span['size']-6.5) < .01]
+    for seam in net.seams:
+        assert numbers.count(str(seam.number)) == 2
+    for span in spans:
+        x0, y0, x1, y1 = span['bbox']
+        assert 0 <= x0 <= x1 <= float(page.mediabox.width) + .01
+        assert 0 <= y0 <= y1 <= float(page.mediabox.height) + .01
     glb = trimesh.load(folder / 'model.glb', force='scene')
     loaded = next(iter(glb.geometry.values()))
     np.testing.assert_allclose(glb.extents, np.ptp(net.solid.vertices, axis=0)/1000, atol=1e-7)
@@ -126,15 +154,12 @@ def test_long_printable_name_stays_inside_the_safe_page_margin(rendered, tmp_pat
     design = design.model_copy(update={'name': 'W' * 48})
     path = tmp_path / 'long-name.pdf'
     draw_net(design, net).pdf(path, design.name)
-    with pymupdf.open(path) as pdf:
-        page = pdf[0]
-        unit = 72 / 25.4
-        safe = pymupdf.Rect(10 * unit - .05, 10 * unit - .05,
-                            200 * unit + .05, 287 * unit + .05)
-        for block in page.get_text('dict')['blocks']:
-            for line in block.get('lines', []):
-                for span in line['spans']:
-                    assert safe.contains(pymupdf.Rect(span['bbox'])), span
+    page = PdfReader(path).pages[0]
+    unit = 72 / 25.4
+    for span in pdf_spans(page):
+        x0, y0, x1, y1 = span['bbox']
+        assert x0 >= 10 * unit - .05 and x1 <= 200 * unit + .05, span
+        assert y0 >= 10 * unit - .05 and y1 <= 287 * unit + .05, span
 
 
 @pytest.mark.parametrize('mutation,failed_check', [
