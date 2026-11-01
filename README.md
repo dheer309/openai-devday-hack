@@ -10,7 +10,7 @@ Requirements: Node.js 22+ and either Python 3 or [uv](https://docs.astral.sh/uv/
 npm run dev
 ```
 
-On the first run, this installs the locked web dependencies, reuses or prepares Python 3.11, and installs the backend and Blender runtime. The Blender download is substantial; subsequent starts reuse the installation. The launcher starts both services, checks that the geometry engine is ready, and serves the web app at **http://127.0.0.1:3000**. Press Ctrl+C to stop both services.
+On the first run, this installs the locked web dependencies, reuses or prepares Python 3.11, and installs the lightweight local print engine. Blender is optional and is not downloaded by default. Subsequent starts reuse the installation. The launcher starts both services, checks that the geometry engine is ready, and serves the web app at **http://127.0.0.1:3000**. Press Ctrl+C to stop both services.
 
 For AI interpretation, put your own credentials in `frontend/.env.local` (the launcher creates this file from `.env.example` if missing), then restart:
 
@@ -55,7 +55,7 @@ npm test
 npm run build
 ```
 
-`npm test` runs the frontend contract/input/proxy checks and the real backend geometry/export tests. Backend tests use Blender sequentially and reopen GLB/PDF outputs. Builds use two workers; the backend handles one uncached rendering job at a time and caches complete validated exports.
+`npm test` runs the frontend contract/input/proxy checks and the real backend geometry/export tests. Backend tests use the local engine sequentially and reopen GLB/PDF outputs. Builds use two workers; the backend handles one uncached rendering job at a time and caches complete validated exports.
 
 With the app running, check a complete live text-to-export request:
 
@@ -74,13 +74,13 @@ The check downloads the actual GLB, SVG and PDF through the frontend proxy into 
 ## Service layout
 
 - `frontend/`: Next.js/TypeScript app and server-only OpenAI adapter.
-- `backend/`: FastAPI, deterministic geometry, Blender Export Paper Model adapter, independent print validation and exporters.
+- `backend/`: FastAPI, deterministic geometry, local unfolding engine, optional Blender adapter, independent print validation and exporters.
 - `POST /api/design`: interprets text or one reference image into the version-2 design schema.
 - `GET /api/geometry-health`, `POST /api/render`, `GET /api/assets/:id/:filename`: frontend proxy routes to the local backend.
 - Backend: `GET /health`, `GET /design-schema`, `POST /render`, `GET /assets/:id/:filename`.
 - Version-1 cube designs remain compatible; version 2 enables variable shapes and dimensions. See [the interface contract](docs/interface-contract.md).
 
-Advanced backend settings are documented in `backend/.env.example`. A compatible external Blender executable can be selected with `BLENDER_BIN`, or a separate bpy interpreter with `BLENDER_PYTHON`; otherwise the launcher installs the pinned bpy runtime. The backend stores session exports in ignored `backend/storage/` (override with `FOLDABLE_STORAGE`). Its separate-service commands are in [backend/README.md](backend/README.md).
+Advanced backend settings are documented in `backend/.env.example`. The default engine runs locally without Blender. For the optional Blender engine, set `FOLDABLE_ENGINE=blender` and configure `BLENDER_BIN` or `BLENDER_PYTHON`, or allow installation of the optional bpy runtime. The backend stores session exports in ignored `backend/storage/` (override with `FOLDABLE_STORAGE`). Its separate-service commands are in [backend/README.md](backend/README.md).
 
 ## ChatGPT account pets
 

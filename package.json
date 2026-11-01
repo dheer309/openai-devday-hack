@@ -11,6 +11,6 @@
     "test:frontend": "npm --prefix frontend test",
     "test:backend": "node scripts/backend-tests.mjs",
     "typecheck": "npm --prefix frontend run typecheck",
-    "check:integration": "npm --prefix frontend run check:integration"
+    "check:integration": "npm --prefix frontend run check:integration --"
   }
 }

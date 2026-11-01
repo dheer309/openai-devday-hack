@@ -28,7 +28,7 @@ Version-2 request to the same `POST /render` route:
 - `GET /design-schema` exposes the Pydantic JSON schema for version 2. Track B should make all object properties required when adapting it for OpenAI strict Structured Outputs and handle refusals/errors explicitly.
 - `GET /examples` returns available fixture designs. A fixture is not a live AI result.
 
-The version-2 success response preserves `design`, `mode`, asset URLs, and `validation`. It adds `engine: "Blender Export Paper Model 1.4.2"` and `interpretation: "procedural_low_poly"`. Its stats are:
+The version-2 success response preserves `design`, `mode`, asset URLs, and `validation`. It adds `engine: "Foldable local unfold"` (or `"Blender Export Paper Model 1.4.2"` for the optional engine) and `interpretation: "procedural_low_poly"`. Its stats are:
 
 ```json
 {

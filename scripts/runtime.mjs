@@ -58,7 +58,7 @@ export async function setup() {
   await loadEnvironment();
 
   const frontendHash = createHash('sha256').update(await readFile(path.join(frontend, 'package-lock.json'))).digest('hex');
-  const requirements = ['requirements.txt', ...(process.env.BLENDER_BIN || process.env.BLENDER_PYTHON ? [] : ['requirements-blender.txt'])];
+  const requirements = ['requirements.txt', ...(process.env.FOLDABLE_ENGINE === 'blender' && !process.env.BLENDER_BIN && !process.env.BLENDER_PYTHON ? ['requirements-blender.txt'] : [])];
   const backendHash = createHash('sha256');
   for (const name of requirements) backendHash.update(await readFile(path.join(backend, name)));
   backendHash.update(JSON.stringify(requirements));
@@ -82,7 +82,7 @@ export async function setup() {
       const interpreter = found.status === 0 ? found.stdout.trim() : '3.11';
       await run(uv, ['venv', '--python', interpreter, path.join(backend, '.venv')]);
     }
-    console.log('Installing the geometry engine (includes the Blender runtime on first setup)…');
+    console.log('Preparing the local geometry engine…');
     await run(uv, ['pip', 'install', '--python', python, ...requirements.flatMap(name => ['-r', path.join(backend, name)])]);
   }
   await writeFile(stamp, JSON.stringify(desired, null, 2));

@@ -8,7 +8,7 @@ The user has explicitly revised the scope during implementation:
 - Text or a photo/pet reference becomes a structured design specification. Deterministic geometry code builds a stylised low-poly model from supported shapes and proportions. No arbitrary-photo reconstruction claim.
 - Models must vary: `box`, `rounded`, `diamond`, and `crystal`, with proportion controls and optional pointed ears. The cube is a compatibility fixture and fallback, not the entire product.
 - Exactly one A4 sheet per model, black outlines only. Multiple paper pieces on the sheet are allowed.
-- Use the established Blender **Export Paper Model** add-on for unfolding, tab geometry, and packing. Do not ship the custom unfolder or newer Papercraft Pro core.
+- The latest user request prioritises speed and authorises replacing Blender. Use the validated lightweight local unfolding engine by default. Keep Blender Export Paper Model as an explicit optional engine; the normal startup must not download or require Blender.
 - Prioritise human assembly: target 6 mm tabs; reject tabs under 4.5 mm, overly short edges, overlaps, missing mates, excessive joins/pieces, and layouts that do not fit. Software validation does not establish physical usability.
 - Preserve the existing version-1 cube request/response for Track B. Add version 2 as specified in `docs/interface-contract.md`; keep synchronous `/render` because local procedural geometry does not need a remote generation job.
 - User authorized updating this brief and the shared contract on `build/geometry-print`. Track A still owns backend implementation; no frontend source changes in this branch.
