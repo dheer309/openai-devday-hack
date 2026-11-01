@@ -35,8 +35,14 @@ def test_health_reports_missing_configured_runtime(monkeypatch):
     assert TestClient(api.app).get("/health").json()["engine_ready"] is False
 
 
-def test_failed_render_cleans_staging_and_releases_the_lock(monkeypatch, tmp_path):
+@pytest.mark.parametrize("diagnostic_writable", [True, False])
+def test_failed_render_cleans_staging_and_releases_the_lock(monkeypatch, tmp_path, diagnostic_writable):
     monkeypatch.setattr(service, "STORAGE", tmp_path)
+
+    if not diagnostic_writable:
+        def unwritable(*args, **kwargs):
+            raise PermissionError()
+        monkeypatch.setattr(service.shutil, "copyfile", unwritable)
 
     def failed(design, staging):
         (staging / "engine.log").write_text("Runtime diagnostic", encoding="utf-8")
@@ -48,6 +54,7 @@ def test_failed_render_cleans_staging_and_releases_the_lock(monkeypatch, tmp_pat
         service.render_design(design)
     assert list(tmp_path.glob("_pending-*")) == []
     assert list(tmp_path.glob("*/result.json")) == []
-    assert (tmp_path / "last-engine-error.log").read_text() == "Runtime diagnostic"
+    if diagnostic_writable:
+        assert (tmp_path / "last-engine-error.log").read_text() == "Runtime diagnostic"
     assert service.LOCK.acquire(blocking=False)
     service.LOCK.release()

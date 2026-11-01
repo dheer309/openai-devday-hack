@@ -68,9 +68,14 @@ def render_design(design):
         return result
     finally:
         # Failed jobs are never publishable assets and must not accumulate.
-        if staging is not None and staging.exists():
-            engine_log = staging / "engine.log"
-            if engine_log.is_file():
-                shutil.copyfile(engine_log, STORAGE / "last-engine-error.log")
-            shutil.rmtree(staging, ignore_errors=True)
-        LOCK.release()
+        try:
+            if staging is not None and staging.exists():
+                engine_log = staging / "engine.log"
+                if engine_log.is_file():
+                    try:
+                        shutil.copyfile(engine_log, STORAGE / "last-engine-error.log")
+                    except OSError:
+                        pass  # A diagnostic write must not hide the original error.
+                shutil.rmtree(staging, ignore_errors=True)
+        finally:
+            LOCK.release()
