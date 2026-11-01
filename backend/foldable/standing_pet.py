@@ -24,6 +24,10 @@ from .engine import adapt, bounds, validate
 from .export import Drawing, edge_angle
 from .geometry import panels_from_points
 
+BLUE = (0.0, 0.49, 0.91)
+PINK = (1.0, 0.57, 0.72)
+BLACK = (0.03, 0.05, 0.09)
+
 
 @dataclass
 class Part:
@@ -122,7 +126,7 @@ def on_face(part, normal, points):
     return local@p.rotation.T+p.offset
 
 
-def draw_part(d, part, inside=False):
+def draw_part(d, part, inside=False, color=False):
     net = part.net
     for edge in sorted(net.hinges):
         d.line(net.edge_points(net.solid.edges[edge][0], edge), .16, True)
@@ -143,6 +147,12 @@ def draw_part(d, part, inside=False):
             if inside:
                 d.text(*center, f'{part.prefix}{s.number}', size=6, angle=angle, anchor='middle')
     if not inside:
+        if color:
+            colors = [(0, BLUE), (1, BLACK), (2, BLACK), (4, PINK), (5, PINK), (6, (1, 1, 1))] if part.name == 'head' else [(0, BLUE)]
+            for index, fill in colors:
+                xy = part.paths[index]
+                world = np.column_stack((xy, np.full(len(xy), part.dims[2]/2)))
+                d.polygon(on_face(part, (0, 0, 1), world), .25, fill=fill)
         for xy in part.paths:
             world = np.column_stack((xy, np.full(len(xy), part.dims[2]/2)))
             d.line(on_face(part, (0, 0, 1), world), .32)
@@ -163,11 +173,17 @@ def draw_part(d, part, inside=False):
     d.text(*center, 'BODY HERE' if part.name == 'head' else 'GLUE TO HEAD', size=5.5, anchor='middle')
 
 
-def texture_mesh(part):
+def texture_mesh(part, color=False):
     image = Image.new('RGB', (1024, 1024), 'white')
     pen = ImageDraw.Draw(image)
     def uv(xy):
         return .1+.8*(np.asarray(xy)/np.array(part.dims[:2])+.5)
+    if color:
+        colors = [(0, BLUE), (1, BLACK), (2, BLACK), (4, PINK), (5, PINK), (6, (1, 1, 1))] if part.name == 'head' else [(0, BLUE)]
+        for index, fill in colors:
+            pts = uv(part.paths[index])
+            pen.polygon([(float(u*1023), float((1-v)*1023)) for u, v in pts],
+                        fill=tuple(round(c*255) for c in fill))
     for line in part.paths:
         pts = uv(line)
         pen.line([(float(u*1023), float((1-v)*1023)) for u, v in pts], fill='black',
@@ -188,13 +204,19 @@ def view_points(points):
     return np.asarray(points) @ np.array([[.88, -.22], [0, .96], [-.48, -.40]])
 
 
-def preview(d, parts, offset=(173, 74), scale=.82):
+def preview(d, parts, offset=(173, 74), scale=.82, color=False):
     for part in reversed(parts):
         solid = part.net.solid
         for panel in solid.panels:
             if np.dot(panel.normal, (3, 2, 5)) <= 0:
                 continue
             d.polygon(view_points(solid.vertices[list(panel.vertices)]+part.center)*scale+offset, .2)
+        if color:
+            colors = [(0, BLUE), (1, BLACK), (2, BLACK), (4, PINK), (5, PINK), (6, (1, 1, 1))] if part.name == 'head' else [(0, BLUE)]
+            for index, fill in colors:
+                line = part.paths[index]
+                world = np.column_stack((line, np.full(len(line), part.dims[2]/2)))+part.center
+                d.polygon(view_points(world)*scale+offset, .18, fill=fill)
         for line in part.paths:
             world = np.column_stack((line, np.full(len(line), part.dims[2]/2)))+part.center
             d.line(view_points(world)*scale+offset, .23)
@@ -233,7 +255,7 @@ def write_duplex(front, back, path):
                     (p.moveTo if i == 0 else p.lineTo)(float(x)*mm, float(y)*mm)
                 if item['kind'] == 'polygon':
                     p.close()
-                    canvas.setFillColorRGB(1, 1, 1)
+                    canvas.setFillColorRGB(*item.get('fill', (1, 1, 1)))
                     canvas.drawPath(p, fill=1, stroke=1)
                 else:
                     canvas.drawPath(p)
@@ -247,7 +269,7 @@ def write_duplex(front, back, path):
     canvas.save()
 
 
-def build(output):
+def build(output, color=False):
     output.mkdir(parents=True, exist_ok=True)
     head = make_part('head', 'H', (36, 30, 26), (0, 39, 0), output)
     body = make_part('body', 'B', (22, 24, 20), (0, 12, 0), output)
@@ -267,7 +289,7 @@ def build(output):
     d.text(10, 258, 'HEAD / 36 x 30 x 26 mm', 8, bold=True)
     d.text(120, 231, 'BODY / 22 x 24 x 20 mm', 8, bold=True)
     for part in parts:
-        draw_part(d, part)
+        draw_part(d, part, color=color)
         draw_part(inside, part, inside=True)
     d.text(10, 131, 'OPTIONAL FLAT ARMS AND ANTENNA', 8, bold=True)
     for x, name in [(61, 'L'), (76, 'R')]:
@@ -280,10 +302,13 @@ def build(output):
     for side in (d, inside):
         side.line(antenna, .24)
         side.line([(96, 92), (104, 92)], .16, True)
+    if color:
+        d.polygon(rect(98.5, 92, 3, 9), .18, fill=BLACK)
+        d.polygon(loop([(101.5, 101), (104, 104), (100, 108), (96, 104), (98.5, 101)]), .18, fill=BLUE)
     inside.text(100, 89, 'glue', 5, anchor='middle')
     d.text(10, 77, 'Arms: glue upper ends to body sides, below head.', 6.5)
     d.text(10, 72, 'Antenna: fold foot 90 degrees; glue on head top.', 6.5)
-    preview(d, parts)
+    preview(d, parts, color=color)
     d.text(173, 62, 'ASSEMBLED BOXES', 6.5, anchor='middle')
     d.text(173, 58, '54 mm tall before antenna', 6.5, anchor='middle')
     d.line([(10, 51), (200, 51)], .15)
@@ -320,7 +345,7 @@ def build(output):
     back.svg(output/'standing-bsod-back.svg')
     scene = trimesh.Scene()
     for part in parts:
-        scene.add_geometry(texture_mesh(part), node_name=part.name, geom_name=part.name)
+        scene.add_geometry(texture_mesh(part, color=color), node_name=part.name, geom_name=part.name)
     (output/'standing-bsod.glb').write_bytes(scene.export(file_type='glb'))
     record = {'physically_tested': False, 'paper': 'A4', 'page_count': 2, 'sheets': 1, 'duplex_flip': 'long-edge',
               'height_mm': 54, 'engine': 'Blender Export Paper Model 1.4.2',
@@ -334,8 +359,9 @@ def build(output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--color', action='store_true', help='Fill the outside screen and cheeks with colour')
     args = parser.parse_args()
-    build(args.output)
+    build(args.output, color=args.color)
     print(args.output.resolve())
 
 

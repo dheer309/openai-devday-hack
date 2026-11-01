@@ -19,8 +19,8 @@ class Drawing:
     def line(self, points, width=0.22, dashed=False):
         self.items.append({"kind": "line", "points": np.asarray(points), "width": width, "dashed": dashed})
 
-    def polygon(self, points, width=0.22):
-        self.items.append({"kind": "polygon", "points": np.asarray(points), "width": width})
+    def polygon(self, points, width=0.22, fill=(1, 1, 1)):
+        self.items.append({"kind": "polygon", "points": np.asarray(points), "width": width, "fill": fill})
 
     def text(self, x, y, text, size=7, angle=0, anchor="start", bold=False):
         self.items.append({"kind": "text", "x": x, "y": y, "text": text, "size": size,
@@ -42,7 +42,7 @@ class Drawing:
                     (p.moveTo if i == 0 else p.lineTo)(float(x)*mm, float(y)*mm)
                 if item["kind"] == "polygon":
                     p.close()
-                    c.setFillColorRGB(1, 1, 1)
+                    c.setFillColorRGB(*item.get("fill", (1, 1, 1)))
                     c.drawPath(p, fill=1, stroke=1)
                 else:
                     c.drawPath(p)
@@ -62,7 +62,9 @@ class Drawing:
         for item in self.items:
             if item["kind"] == "polygon":
                 pts = ' '.join(f'{x:.4f},{297-y:.4f}' for x, y in item["points"])
-                out.append(f'<polygon points="{pts}" fill="white" stroke="black" stroke-width="{item["width"]}" stroke-linejoin="round"/>')
+                fill = item.get('fill', (1, 1, 1))
+                color = '#'+''.join(f'{round(v*255):02x}' for v in fill)
+                out.append(f'<polygon points="{pts}" fill="{color}" stroke="black" stroke-width="{item["width"]}" stroke-linejoin="round"/>')
             elif item["kind"] == "line":
                 pts = ' '.join(f'{x:.4f},{297-y:.4f}' for x, y in item["points"])
                 dash = ' stroke-dasharray="1.5 .9"' if item["dashed"] else ''
