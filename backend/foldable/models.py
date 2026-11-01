@@ -89,7 +89,7 @@ class BoxPart(StrictModel):
 class DesignV3(StrictModel):
     version: Literal[3]
     name: str = Field(min_length=1, max_length=48)
-    parts: list[BoxPart] = Field(min_length=1, max_length=8)
+    parts: list[BoxPart] = Field(min_length=1, max_length=12)
 
     @model_validator(mode="after")
     def unique_parts(self):

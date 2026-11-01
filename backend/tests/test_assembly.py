@@ -37,8 +37,41 @@ def test_separate_feet_remain_attached():
     assert len(contacts[1]) == len(contacts[2]) == 1
     design.parts[1].position.x = -10
     design.parts[2].position.x = 10
-    with pytest.raises(PrintError, match="Separate the left and right feet"):
-        _contacts(design.parts)
+    # Geometry validation permits touching when that is intentional; the
+    # planner/layout layer separates limbs when the design calls for it.
+    assert len(_contacts(design.parts)[1]) == 2
+
+
+def test_four_legs_are_connected_without_assuming_an_upright_pose():
+    box = {"shape": "box", "color": "#a38769", "artwork": []}
+    design = DESIGN_ADAPTER.validate_python({"version": 3, "name": "Animal", "parts": [
+        {**box, "id": "body", "width_mm": 40, "height_mm": 20, "depth_mm": 40,
+         "position": {"x": 0, "y": 0, "z": 0}},
+        *[{**box, "id": name, "width_mm": 15, "height_mm": 15, "depth_mm": 15,
+           "position": {"x": x, "y": -17.5, "z": z}}
+          for name, x, z in [('leftfrontleg', -10, 10), ('rightfrontleg', 10, 10),
+                             ('leftbackleg', -10, -10), ('rightbackleg', 10, -10)]],
+    ]})
+    contacts = _contacts(design.parts)
+    assert {contact[0] for contact in contacts[0]} == {1, 2, 3, 4}
+    assert all(len(c) == 1 and c[0][0] == 0 for c in contacts[1:])
+
+
+def test_faceted_front_back_contact_guide_matches_actual_face(tmp_path):
+    from shapely.geometry import Polygon
+    design = DESIGN_ADAPTER.validate_python({'version': 3, 'name': 'Shape', 'parts': [
+        {'id': 'front', 'shape': 'diamond', 'width_mm': 40, 'height_mm': 40, 'depth_mm': 25,
+         'position': {'x': 0, 'y': 0, 'z': 25}, 'color': '#5588cc', 'artwork': []},
+        {'id': 'back', 'shape': 'box', 'width_mm': 40, 'height_mm': 40, 'depth_mm': 25,
+         'position': {'x': 0, 'y': 0, 'z': 0}, 'color': '#5588cc', 'artwork': []},
+    ]})
+    contact = _contacts(design.parts)[0][0]
+    assert contact[1] == 2
+    net = solve(design.parts[0], tmp_path)
+    outline = _contact_outline(design.parts[0], net, contact)
+    assert len(outline) == 6
+    face = max(range(len(net.solid.panels)), key=lambda i: np.dot(net.solid.panels[i].normal, [0,0,-1]))
+    assert Polygon(net.placed[face].points).buffer(.00001).covers(Polygon(outline))
 
 
 def test_duplex_mirrors_geometry_and_preserves_artwork(tmp_path):

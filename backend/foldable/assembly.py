@@ -16,16 +16,7 @@ from .models import PrintError
 
 
 def _contacts(parts):
-    """Find face-to-face joins and reject intersecting or disconnected boxes."""
-    def foot(part, side):
-        name = part.id.lower()
-        return side in name and any(word in name for word in ('foot', 'feet', 'leg'))
-    left = next((p for p in parts if foot(p, 'left')), None)
-    right = next((p for p in parts if foot(p, 'right')), None)
-    if left and right:
-        gap = right.position.x - right.width_mm / 2 - (left.position.x + left.width_mm / 2)
-        if gap < 3.95:
-            raise PrintError('Separate the left and right feet by at least 4 mm while keeping both attached to the body.', ['feet_gap'])
+    """Find real face-to-face joins and reject intersecting or disconnected parts."""
     solids = [make_solid(part) for part in parts]
     contacts = [[] for _ in parts]
     adjacency = [set() for _ in parts]
@@ -58,11 +49,13 @@ def _contacts(parts):
                     xmin,ymin,xmax,ymax=contact.bounds
                     if min(xmax-xmin,ymax-ymin) <= 2:
                         continue
-                    # Axis-extreme faces of the supported prisms are rectangular.
+                    # Keep the real face intersection, including nonrectangular
+                    # front/back faces, for accurate printed glue guides.
                     lo=lo.copy(); hi=hi.copy()
                     lo[other]=[xmin,ymin]; hi[other]=[xmax,ymax]
-                    contacts[i].append((j,axis,sign,lo,hi))
-                    contacts[j].append((i,axis,-sign,lo,hi))
+                    outline=np.asarray(contact.exterior.coords[:-1])
+                    contacts[i].append((j,axis,sign,lo,hi,outline))
+                    contacts[j].append((i,axis,-sign,lo,hi,outline))
                     adjacency[i].add(j); adjacency[j].add(i)
                     break
     seen={0}; pending=[0]
@@ -76,7 +69,7 @@ def _contacts(parts):
 
 
 def _contact_outline(part, net, contact):
-    _,axis,sign,lo,hi=contact
+    _,axis,sign,lo,hi,outline=contact
     other=[k for k in range(3) if k != axis]
     center=np.array([part.position.x,part.position.y,part.position.z])
     dimensions=np.array([part.width_mm,part.height_mm,part.depth_mm])
@@ -84,8 +77,7 @@ def _contact_outline(part, net, contact):
     face=max(range(len(net.solid.panels)),key=lambda k: np.dot(net.solid.panels[k].normal,normal))
     panel=net.solid.panels[face]; placed=net.placed[face]
     points=[]
-    for a,b in [(lo[other[0]],lo[other[1]]),(hi[other[0]],lo[other[1]]),
-                (hi[other[0]],hi[other[1]]),(lo[other[0]],hi[other[1]])]:
+    for a,b in outline:
         world=center.copy(); world[axis]+=sign*dimensions[axis]/2
         world[other[0]]=a; world[other[1]]=b
         local=world-center-panel.origin

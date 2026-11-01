@@ -99,6 +99,9 @@ test("version 3 preserves individual part placements and colored artwork", () =>
   assert.equal(aiDesignV3Schema.safeParse(assembly).success, false);
   const shaped = { ...assembly, parts: assembly.parts.map((p, i) => ({ ...p, shape: i ? "rounded" as const : "box" as const })) };
   assert.equal(aiDesignV3Schema.safeParse(shaped).success, true);
+  const twelve = Array.from({ length: 12 }, (_, i) => ({ ...shaped.parts[0], id: `part_${i}` }));
+  assert.equal(aiDesignV3Schema.safeParse({ ...assembly, parts: twelve }).success, true);
+  assert.equal(aiDesignV3Schema.safeParse({ ...assembly, parts: [...twelve, twelve[0]] }).success, false);
   assert.equal(sameDesign(assembly, { ...assembly, parts: assembly.parts.map(p => ({ ...p, shape: "box" as const })) }), true);
   assert.equal(sameDesign(assembly, shaped), false);
   for (const shape of ["box", "rounded", "diamond", "crystal"] as const) {
