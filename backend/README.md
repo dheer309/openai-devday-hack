@@ -39,7 +39,7 @@ Software checks do not establish physical assembly. Paper stiffness, cutting and
 .venv/bin/python -m pytest tests -q
 ```
 
-Tests generate and reopen real PDF/GLB outputs, check all supported profiles including diamond, reject corrupted layouts, verify artwork orientation, and cover API/runtime/storage behavior. Generated files stay in ignored storage directories.
+Verified on macOS arm64 with Python 3.11 and NumPy 2.4: all 32 backend tests pass, including actual robot, cat, rounded pebble, crystal and diamond exports. Tests reopen real PDF/GLB outputs, reject corrupted layouts, verify artwork orientation and label pairs, and cover API/runtime/storage behavior. Generated files stay in ignored storage directories.
 
 ## Optional Blender engine
 

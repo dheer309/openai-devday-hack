@@ -51,7 +51,7 @@ def pdf_spans(page):
 
 @pytest.fixture(scope='module')
 def rendered():
-    # Exercise the real Blender worker, exporter, cache and HTTP asset routes.
+    # Exercise real unfolding, validation, export, cache and HTTP asset routes.
     root = service.STORAGE / ('test-' + uuid.uuid4().hex)
     root.mkdir(parents=True)
     old_storage = service.STORAGE

@@ -135,6 +135,84 @@ def _pack(net, page_area):
     return True
 
 
+
+def _prism_net(solid, Net, Placed, Seam, neighbors, page_area, validate, deadline):
+    quads = [i for i, panel in enumerate(solid.panels) if len(panel.vertices) == 4]
+    triangles = {i for i, panel in enumerate(solid.panels) if len(panel.vertices) == 3}
+    if len(quads) != 6 or len(triangles) != 12:
+        return None
+    caps = []
+    while triangles:
+        todo = [min(triangles)]
+        component = set()
+        while todo:
+            face = todo.pop()
+            if face in component:
+                continue
+            component.add(face)
+            todo.extend(child for child, _ in neighbors[face] if child in triangles and child not in component)
+        triangles -= component
+        caps.append(component)
+    if len(caps) != 2 or any(len(c) != 6 for c in caps):
+        return None
+
+    def attach_cap(base, base_hinges, component):
+        for root in component:
+            parent, shared = next((f, e) for f, e in neighbors[root] if f in quads)
+            start = _attach(solid, base, parent, root, shared, Placed)
+            for first, first_edge in neighbors[root]:
+                if first not in component:
+                    continue
+                placed = dict(base)
+                placed[root] = start
+                hinges = base_hinges | {shared}
+                previous, current, edge = root, first, first_edge
+                while current not in placed:
+                    placed[current] = _attach(solid, placed, previous, current, edge, Placed)
+                    hinges.add(edge)
+                    following = [(child, shared) for child, shared in neighbors[current]
+                                 if child in component and child not in placed]
+                    if not following:
+                        break
+                    previous, (current, edge) = current, following[0]
+                if not component <= placed.keys():
+                    continue
+                polygons = [Polygon(p.points) for p in placed.values()]
+                if any(_overlap(p, q) for i, p in enumerate(polygons) for q in polygons[i + 1:]):
+                    continue
+                yield placed, hinges
+
+    root = quads[0]
+    for first, first_edge in neighbors[root]:
+        if first not in quads:
+            continue
+        placed = {root: Placed(root, solid.panels[root].xy.copy(), np.eye(2), np.zeros(2), 0)}
+        hinges = set()
+        previous, current, edge = root, first, first_edge
+        while current not in placed:
+            placed[current] = _attach(solid, placed, previous, current, edge, Placed)
+            hinges.add(edge)
+            following = [(child, shared) for child, shared in neighbors[current]
+                         if child in quads and child not in placed]
+            if not following:
+                break
+            previous, (current, edge) = current, following[0]
+        if not all(q in placed for q in quads):
+            continue
+        for top, top_hinges in attach_cap(placed, hinges, caps[0]):
+            for complete, all_hinges in attach_cap(top, top_hinges, caps[1]):
+                net = Net(solid, complete, all_hinges, [], 1, 1)
+                if _add_tabs(net, Seam, min(deadline, time.monotonic() + .5)) and _pack(net, page_area):
+                    try:
+                        validate(net)
+                        return net
+                    except PrintError:
+                        pass
+                if time.monotonic() > deadline:
+                    return None
+    return None
+
+
 def solve_local(design, workdir, Net, Placed, Seam, page_area, validate):
     rng = random.Random(81463)
     scales = [1.0] if isinstance(design, DesignV1) else [1.0, .92, .84]
@@ -151,6 +229,10 @@ def solve_local(design, workdir, Net, Placed, Seam, page_area, validate):
             a, b = faces
             neighbors[a].append((b, edge))
             neighbors[b].append((a, edge))
+        prism = _prism_net(solid, Net, Placed, Seam, neighbors, page_area, validate, scale_deadline)
+        if prism is not None:
+            prism.scale = scale
+            return prism
         for attempt in range(180):
             if time.monotonic() > scale_deadline:
                 break
