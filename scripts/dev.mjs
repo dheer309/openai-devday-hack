@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import net from 'node:net';
+import path from 'node:path';
 import { backend, frontend, python, setup, npm } from './runtime.mjs';
 
 const production = process.argv.includes('--production');
@@ -58,10 +59,7 @@ async function main() {
   await waitForGeometry(geometryOrigin);
   if (production) await npm(['run', 'build'], { cwd: frontend, env });
   if (stopping) return;
-  const cli = process.env.npm_execpath;
-  const args = ['run', production ? 'start' : 'dev', '--', '--port', String(port)];
-  if (cli) launch(process.execPath, [cli, ...args], { cwd: frontend, env });
-  else launch(process.platform === 'win32' ? 'npm.cmd' : 'npm', args, { cwd: frontend, env, shell: process.platform === 'win32' });
+  launch(process.execPath, [path.join(frontend, 'node_modules/next/dist/bin/next'), production ? 'start' : 'dev', '--hostname', '127.0.0.1', '--port', String(port)], { cwd: frontend, env });
   let webReady = false;
   for (let attempt = 0; attempt < 120 && !stopping; attempt++) {
     try {
