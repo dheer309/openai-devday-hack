@@ -25,7 +25,7 @@ function cropImage(image: HTMLImageElement, rect: CropRect) {
   return dataUrl;
 }
 
-export default function ImageCropper({ onChange, disabled = false, petMode = false }: Props) {
+export default function ImageCropper({ onChange, disabled = false }: Props) {
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const sourceRef = useRef<Source | null>(null);
@@ -145,18 +145,21 @@ export default function ImageCropper({ onChange, disabled = false, petMode = fal
   }
 
   return <div className={styles.cropper}>
-    <fieldset className={styles.modeFieldset} disabled={disabled || busy}>
-      <legend>{petMode ? "Pet reference format" : "Image format"}</legend>
-      <div className={styles.formatOptions}>
-        <label><input type="radio" name={`${id}-format`} checked={mode === "single"} onChange={() => changeMode("single")} />{petMode ? "Screenshot / one character" : "Single image"}</label>
-        <label><input type="radio" name={`${id}-format`} checked={mode === "sheet"} onChange={() => changeMode("sheet")} />Sprite sheet</label>
-      </div>
-    </fieldset>
-    <input ref={inputRef} id={`${id}-upload`} className={styles.fileInput} type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled || busy} onChange={(event) => { void upload(event.target.files?.[0]); event.target.value = ""; }} aria-describedby={`${id}-help`} />
+    <input ref={inputRef} id={`${id}-upload`} className={styles.fileInput} type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled || busy} onChange={(event) => { void upload(event.target.files?.[0]); event.target.value = ""; }} />
     <label className={`${styles.uploadLabel} ${disabled || busy ? styles.uploadDisabled : ""}`} htmlFor={`${id}-upload`}>
-      {source ? <Upload size={19} /> : <ImagePlus size={23} />}<span>{busy ? "Opening image…" : source ? "Replace reference image" : "Choose a reference image"}<small>PNG, JPEG or WebP · up to 5 MiB</small></span>
+      {source ? <Upload size={18} /> : <ImagePlus size={20} />}<span>{busy ? "Opening image…" : source ? "Replace image" : "Choose image"}<small>PNG, JPEG or WebP · 5 MiB max</small></span>
     </label>
-    <p id={`${id}-help`} className={styles.help}>{mode === "sheet" ? "Set the sheet’s rows and columns, then click one frame. Only that frame is sent to AI." : petMode ? "Upload a clean character image or screenshot. For animation sheets, choose Sprite sheet first." : "Choose a photo or a clean image of one character. You can add guidance below."}</p>
+    <details className={styles.imageOptions}>
+      <summary>Image options</summary>
+      <fieldset className={styles.modeFieldset} disabled={disabled || busy}>
+        <legend className={styles.visuallyHidden}>Image format</legend>
+        <div className={styles.formatOptions}>
+          <label><input type="radio" name={`${id}-format`} checked={mode === "single"} onChange={() => changeMode("single")} />Single image</label>
+          <label><input type="radio" name={`${id}-format`} checked={mode === "sheet"} onChange={() => changeMode("sheet")} />Sprite sheet</label>
+        </div>
+      </fieldset>
+      {mode === "sheet" && <p className={styles.help}>Set the grid below and choose one character frame.</p>}
+    </details>
     {error && <p className={styles.error} role="alert">{error}</p>}
     {source && <div className={styles.sourceArea}>
       <div className={styles.sourceHeading}><span title={source.name}>{source.name}</span><button type="button" onClick={removeImage} disabled={disabled} aria-label="Remove reference image"><X size={16} /></button></div>
@@ -178,7 +181,7 @@ export default function ImageCropper({ onChange, disabled = false, petMode = fal
       {preview && <div className={styles.selectionPreview}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={preview} alt={mode === "sheet" ? `Selected character frame ${Number(selectedFrame) + 1}` : "Reference image ready for interpretation"} />
-        <span><Scissors size={15} />{mode === "sheet" ? "Only this frame will be sent" : "Reference ready"}</span>
+        <span><Scissors size={15} />{mode === "sheet" ? "Selected frame" : "Image ready"}</span>
       </div>}
     </div>}
   </div>;
