@@ -4,7 +4,7 @@ Procedural low-poly mascots, matching monochrome artwork, GLB preview, and a val
 
 ## Run
 
-Use Python **3.11 or 3.13**. The Blender dependency file selects bpy 5.0.1 for Python 3.11 and bpy 5.2.3 for Python 3.13. Both satisfy the vendored engine's Blender 5.x requirement. Other Python versions require a separate compatible Blender executable via `BLENDER_BIN`.
+Use Python **3.11 or 3.13**. The Blender dependency file selects bpy 5.0.1 with NumPy 1.26 for Python 3.11, or bpy 5.2.3 with NumPy 2.x for Python 3.13. Both satisfy the vendored engine's Blender 5.x requirement. Other Python versions require a separate compatible Blender executable via `BLENDER_BIN`.
 
 From this directory on macOS or Linux:
 
