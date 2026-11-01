@@ -52,7 +52,8 @@ export default function Home() {
   const [rendered, setRendered] = useState<RenderRecord | null>(null);
   const [busy, setBusy] = useState<Busy>("example");
   const [failure, setFailure] = useState<Failure | null>(null);
-  const [assetFailure, setAssetFailure] = useState<string | null>(null);
+  const [modelFailure, setModelFailure] = useState<string | null>(null);
+  const [netFailure, setNetFailure] = useState<string | null>(null);
   const [tab, setTab] = useState<"model" | "net">("model");
   const [modelLoaded, setModelLoaded] = useState(false);
   const [netLoaded, setNetLoaded] = useState(false);
@@ -67,7 +68,8 @@ export default function Home() {
     setRendered(null);
     setModelLoaded(false);
     setNetLoaded(false);
-    setAssetFailure(null);
+    setModelFailure(null);
+    setNetFailure(null);
     setFailure(null);
     setBusy(null);
   }, []);
@@ -165,13 +167,18 @@ export default function Home() {
     if (design) updateDesign({ ...design, face: { ...design.face, [key]: value } });
   };
   const receiveImage = useCallback((dataUrl: string | null) => { invalidate(); setImage(dataUrl); }, [invalidate]);
-  const modelReady = useCallback(() => { if (rendered && requestEpoch.current === rendered.epoch) setModelLoaded(true); }, [rendered]);
+  const modelReady = useCallback(() => {
+    if (rendered && requestEpoch.current === rendered.epoch) {
+      setModelLoaded(true);
+      setModelFailure(null);
+    }
+  }, [rendered]);
   const modelError = useCallback((message: string) => {
-    if (rendered && requestEpoch.current === rendered.epoch) { setModelLoaded(false); setAssetFailure(message); }
+    if (rendered && requestEpoch.current === rendered.epoch) { setModelLoaded(false); setModelFailure(message); }
   }, [rendered]);
   const result = rendered?.data;
-  const validationPassed = !!result && result.validation.status === "passed" && REQUIRED_CHECKS.every(check => result.validation.checks.includes(check));
-  const canDownload = validationPassed && modelLoaded && netLoaded && !busy && !failure && !assetFailure;
+  const validationPassed = !!rendered && rendered.epoch === requestEpoch.current && !!result && result.validation.status === "passed" && REQUIRED_CHECKS.every(check => result.validation.checks.includes(check));
+  const canDownload = validationPassed && modelLoaded && netLoaded && !busy && !failure && !modelFailure && !netFailure;
   const canInterpret = !busy && aiConfigured !== false && (inputType === "text" ? text.trim().length > 0 : !!image);
   const progressLabel = busy === "example" ? "Loading the saved design…" : busy === "ai" ? "Interpreting your reference…" : busy === "render" ? "Building assets and checking the net…" : null;
 
@@ -234,7 +241,7 @@ export default function Home() {
                   <ModelViewer key={`${rendered.epoch}:${result.model_url}`} modelUrl={result.model_url} onReady={modelReady} onError={modelError} />
                   {modelLoaded && <span className="viewer-hint">Drag to turn · Scroll to zoom</span>}
                 </div>
-                <div className="net-pane" id="net-panel" role="tabpanel" aria-labelledby="net-tab" hidden={tab !== "net"}><img key={`${rendered.epoch}:${result.preview_url}`} src={result.preview_url} alt={`A4 paper net for ${result.design.name}, returned by the print engine`} onLoad={() => { if (requestEpoch.current === rendered.epoch) setNetLoaded(true); }} onError={() => { if (requestEpoch.current === rendered.epoch) { setNetLoaded(false); setAssetFailure("The paper net could not be loaded. Rebuild the preview to retry."); } }} /><span className="viewer-hint">Single-sided A4 · Solid cuts · Dashed folds</span></div>
+                <div className="net-pane" id="net-panel" role="tabpanel" aria-labelledby="net-tab" hidden={tab !== "net"}><img key={`${rendered.epoch}:${result.preview_url}`} src={result.preview_url} alt={`A4 paper net for ${result.design.name}, returned by the print engine`} onLoad={() => { if (requestEpoch.current === rendered.epoch) { setNetLoaded(true); setNetFailure(null); } }} onError={() => { if (requestEpoch.current === rendered.epoch) { setNetLoaded(false); setNetFailure("The paper net could not be loaded. Rebuild the preview to retry."); } }} /><span className="viewer-hint">Single-sided A4 · Solid cuts · Dashed folds</span></div>
               </> : <div className="preview-placeholder"><div className={busy ? "placeholder-icon working" : "placeholder-icon"}>{busy ? <LoaderCircle className="spin" size={33} strokeWidth={1.2} /> : <Box size={43} strokeWidth={1} />}</div><h4>{busy ? progressLabel : "A little space for your companion"}</h4><p>{busy ? "The preview appears when the print engine returns your model." : "Build a preview to see the exact model and paper net from the print engine."}</p>{!busy && design && <button type="button" onClick={() => void buildPreview()}><RotateCcw size={13} />{failure ? "Retry preview" : "Build preview"}</button>}</div>}
               <div className="stage-footer"><span><span className="ink-dot" />Monochrome artwork</span><span>One sheet. Six faces.</span></div>
             </div>
@@ -242,9 +249,9 @@ export default function Home() {
             <div className="print-panel">
               <div className="validation-row"><div className={validationPassed ? "validation-icon passed" : "validation-icon"}>{validationPassed ? <ShieldCheck size={20} /> : <FileText size={20} />}</div><div><h3>{validationPassed ? "Print checks passed" : busy ? "Preparing your paper companion" : "Print checks pending"}</h3><p>{validationPassed ? "Geometry and layout validated by the print engine." : "Your download unlocks after the model and net pass validation."}</p></div>{validationPassed && <button type="button" className="check-detail-button" aria-expanded={showChecks} onClick={() => setShowChecks(!showChecks)}>8 checks <ChevronDown size={13} /></button>}</div>
               {showChecks && validationPassed && <ul className="check-list">{REQUIRED_CHECKS.map(check => <li key={check}><Check size={13} />{checkLabels[check] || check}</li>)}</ul>}
-              {(failure || assetFailure) && <div className="error-notice" role="alert"><CircleAlert size={16} /><div><p>{assetFailure || failure?.message}</p>{failure && failure.details.length > 0 && <ul>{failure.details.map((detail, i) => <li key={`${detail}-${i}`}>{checkLabels[detail] || detail}</li>)}</ul>}<button type="button" disabled={!!busy} onClick={() => void buildPreview()}>Retry preview <ArrowRight size={12} /></button></div></div>}
+              {(failure || modelFailure || netFailure) && <div className="error-notice" role="alert"><CircleAlert size={16} /><div>{failure && <p>{failure.message}</p>}{modelFailure && <p>{modelFailure}</p>}{netFailure && <p>{netFailure}</p>}{failure && failure.details.length > 0 && <ul>{failure.details.map((detail, i) => <li key={`${detail}-${i}`}>{checkLabels[detail] || detail}</li>)}</ul>}<button type="button" disabled={!!busy} onClick={() => void buildPreview()}>Retry preview <ArrowRight size={12} /></button></div></div>}
               {progressLabel && <p className="progress-note" role="status"><LoaderCircle className="spin" size={13} />{progressLabel}</p>}
-              {result && validationPassed && (!modelLoaded || !netLoaded) && !assetFailure && <p className="progress-note" role="status"><LoaderCircle className="spin" size={13} />Loading the exact 3D model and paper net…</p>}
+              {result && validationPassed && (!modelLoaded || !netLoaded) && !modelFailure && !netFailure && <p className="progress-note" role="status"><LoaderCircle className="spin" size={13} />Loading the exact 3D model and paper net…</p>}
               <div className="download-row"><div><span className="paper-label">A4 · 1 PAGE · BLACK & WHITE</span><p>Numbered tabs. Ready to cut and fold.</p></div>{canDownload && result ? <a className="download-button" href={result.pdf_url} download={`${result.design.name}.pdf`}><ArrowDownToLine size={17} />Download paper net</a> : <button className="download-button" type="button" disabled><ArrowDownToLine size={17} />Download paper net</button>}</div>
               <p className="print-note">Print the PDF at <strong>100% / actual size</strong>, single-sided. Check its 20 mm scale mark before cutting. Software validation only; physical assembly is still to be checked.</p>
             </div>
