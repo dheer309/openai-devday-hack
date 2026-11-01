@@ -31,6 +31,7 @@ export async function POST(request: Request): Promise<Response> {
     });
     const response = await client.responses.parse({
       model,
+      reasoning: { effort: "low" },
       instructions,
       input: [{ role: "user", content }],
       text: { format: zodTextFormat(designV3Schema, "mascot_design") },

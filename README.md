@@ -14,7 +14,7 @@ The launcher prepares dependencies and starts the app at http://127.0.0.1:3000. 
 
 ```dotenv
 OPENAI_API_KEY=your-project-key
-OPENAI_MODEL=gpt-5-mini
+OPENAI_MODEL=gpt-6.1-terra
 ```
 
 Use `PORT` and `GEOMETRY_PORT` to change the default ports. `npm start` builds and serves the production app. `npm run typecheck`, `npm test` and `npm run build` verify the implementation.
