@@ -57,7 +57,7 @@ const v2Result = z.object({ ...shared, design: designV2Schema, engine: z.enum(["
   glue_join_count: z.number().int().min(1).max(18), piece_count: z.number().int().min(1).max(3), minimum_tab_depth_mm: z.number().min(4.498),
 }).strict() }).strict();
 const v3Result = z.object({ ...shared, design: designV3Schema, engine: z.literal("Foldable local unfold"), interpretation: z.literal("procedural_assembly"), stats: z.object({
-  panel_count: z.number().int().positive(), triangle_count: z.number().int().positive(), page_count: z.number().int().positive(), paper: z.literal("A4"), piece_count: z.number().int().min(1).max(8),
+  panel_count: z.number().int().positive(), triangle_count: z.number().int().positive(), page_count: z.number().int().positive(), paper: z.literal("A4"), piece_count: z.number().int().min(1).max(8), scale_applied: z.number().positive(),
 }).strict() }).strict();
 export const renderResultSchema = z.union([v1Result, v2Result, v3Result]).superRefine((result, context) => {
   if (!requiredChecks(result.design).every(check => result.validation.checks.includes(check))) context.addIssue({ code: "custom", path: ["validation", "checks"], message: "All print and assembly checks must pass." });

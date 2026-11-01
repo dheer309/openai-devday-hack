@@ -35,12 +35,13 @@ def render_design(design):
         staging.mkdir()
         started = time.monotonic()
         if isinstance(design, DesignV3):
-            from .assembly import render_assembly
+            from .assembly import assembly_scale, render_assembly
             nets = render_assembly(design, staging)
             checks = validate(nets[0])
             stats = {"panel_count": sum(len(n.solid.panels) for n in nets),
                      "triangle_count": sum(len(n.solid.triangles()) for n in nets),
-                     "page_count": 2 * len(nets), "paper": "A4", "piece_count": len(nets)}
+                     "page_count": 2 * len(nets), "paper": "A4", "piece_count": len(nets),
+                     "scale_applied": assembly_scale(nets)}
         else:
             net = solve(design, staging)
             checks = validate(net)

@@ -92,7 +92,7 @@ test("version 3 preserves individual part placements and colored artwork", () =>
   assert.equal(sameDesign(assembly, structuredClone(assembly)), true);
   const changed = structuredClone(assembly); changed.parts[1].position.y += 1;
   assert.equal(sameDesign(assembly, changed), false);
-  const result = { design: assembly, mode: "supported", model_url: "/api/assets/robot/model.glb", pdf_url: "/api/assets/robot/net.pdf", preview_url: "/api/assets/robot/net.svg", engine: "Foldable local unfold", interpretation: "procedural_assembly", validation: { status: "passed", checks: [...REQUIRED_CHECKS, "usable_tabs", "minimum_edge_size", "tab_receiver_fit", "assembly_complexity"] }, stats: { panel_count: 12, triangle_count: 24, page_count: 4, paper: "A4", piece_count: 2 } };
+  const result = { design: assembly, mode: "supported", model_url: "/api/assets/robot/model.glb", pdf_url: "/api/assets/robot/net.pdf", preview_url: "/api/assets/robot/net.svg", engine: "Foldable local unfold", interpretation: "procedural_assembly", validation: { status: "passed", checks: [...REQUIRED_CHECKS, "usable_tabs", "minimum_edge_size", "tab_receiver_fit", "assembly_complexity"] }, stats: { panel_count: 12, triangle_count: 24, page_count: 4, paper: "A4", piece_count: 2, scale_applied: 1.5 } };
   assert.equal(renderResultSchema.safeParse(result).success, true);
   assert.equal(designSchema.safeParse({ ...assembly, parts: [] }).success, false);
   // Old V3 designs are boxes; new AI designs must name every part's shape.

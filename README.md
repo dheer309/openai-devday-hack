@@ -23,7 +23,7 @@ Use `PORT` and `GEOMETRY_PORT` to change the default ports. `npm start` builds a
 
 Upload a single image or choose a frame from a sprite sheet, or describe a character in text. The AI plans up to eight box, rounded, diamond or crystal parts, their positions, colours and front-face artwork; the engine builds and checks each part's net. This is a constrained assembly, not arbitrary image-to-3D reconstruction. The preview loads the actual exported 3D assembly ; download the PDF for the nets.
 
-Print the PDF on A4 at 100% / actual size, double-sided with **flip on long edge**. Each part uses one front/back page pair: the outside has colour artwork and cut/fold lines; the inside has seam labels. Check the registration marks against a light before cutting; printer alignment varies. Software checks do not replace physically assembling a print.
+Print the PDF on A4 at 100% / actual size, double-sided with **flip on long edge**. All parts are enlarged by the same factor so the largest net uses the available page area while keeping the character in proportion. Each part uses one front/back page pair: the outside has colour artwork and cut/fold lines; the inside has seam labels. Check the registration marks against a light before cutting; printer alignment varies. Software checks do not replace physically assembling a print.
 
 Older version-1 and version-2 designs remain available through the render API and use their original single-sided export. The app can still make a simple legacy design without AI.
 

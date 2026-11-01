@@ -119,13 +119,20 @@ def _front_art(part, net, item):
     return local @ placement.rotation.T + placement.offset
 
 
-def _commands(part, net, reverse=False, contacts=None, parts=None):
+def _commands(part, net, reverse=False, contacts=None, parts=None, scale=1):
     commands = []
-    def poly(points, fill=None, stroke='#000000', width=.2, dash=False):
+    bb = bounds([p.points for p in net.placed.values()] + [s.tab for s in net.seams])
+    source_center = (bb[:2] + bb[2:]) / 2
+    target_center = np.array([105., 145.5])
+    def position(points):
+        return (np.asarray(points, dtype=float) - source_center) * scale + target_center
+    def poly(points, fill=None, stroke='#000000', width=.2, dash=False, fixed=False):
         points = np.asarray(points, dtype=float).copy()
+        if not fixed: points = position(points)
         if reverse: points[:,0] = 210 - points[:,0]
         commands.append(('poly', points, fill, stroke, width, dash))
-    def text(x, y, label, size=7):
+    def text(x, y, label, size=7, fixed=False):
+        if not fixed: x,y = position([x,y])
         commands.append(('text', 210-x if reverse else x, y, str(label), size))
     if not reverse:
         for p in net.placed.values(): poly(p.points, fill=part.color, stroke=None)
@@ -155,13 +162,13 @@ def _commands(part, net, reverse=False, contacts=None, parts=None):
             center=outline.mean(axis=0)
             text(center[0],center[1], 'glue ' + parts[contact[0]].id, 6)
     # A consistent bounding box and registration ticks aid physical duplex alignment.
-    bb = bounds([p.points for p in net.placed.values()] + [s.tab for s in net.seams])
-    x1,y1,x2,y2 = bb + np.array([-3,-3,3,3])
-    poly([(x1,y1),(x2,y1),(x2,y2),(x1,y2),(x1,y1)], stroke='#888888', width=.12)
-    for x,y in [(8,65),(202,65),(8,250),(202,250)]:
-        poly([(x-2,y),(x+2,y)],width=.15); poly([(x,y-2),(x,y+2)],width=.15)
+    scaled_bb = np.r_[position(bb[:2]), position(bb[2:])]
+    x1,y1,x2,y2 = scaled_bb + np.array([-3,-3,3,3])
+    poly([(x1,y1),(x2,y1),(x2,y2),(x1,y2),(x1,y1)], stroke='#888888', width=.12, fixed=True)
+    for x,y in [(8,8),(202,8),(8,289),(202,289)]:
+        poly([(x-2,y),(x+2,y)],width=.15,fixed=True); poly([(x,y-2),(x,y+2)],width=.15,fixed=True)
     if reverse:
-        text(105, 275, part.id + ' - match numbers; glue tabs inside', 7)
+        text(105, 284, part.id + ' - match numbers; glue tabs inside', 7, fixed=True)
     return commands
 
 
@@ -196,16 +203,24 @@ def _svg_draw(commands, offset):
     return out
 
 
+def assembly_scale(nets):
+    # One shared factor keeps every printed part and the assembled model in proportion.
+    available = np.array([178., 259.])  # A4 margins, page header and 3 mm net border
+    sizes = [bounds([p.points for p in net.placed.values()] + [s.tab for s in net.seams]) for net in nets]
+    return min(float(np.min(available / (bb[2:] - bb[:2]))) for bb in sizes)
+
+
 def export_assembly(design, nets, contacts, folder):
+    scale = assembly_scale(nets)
     c=Canvas(str(folder/'net.pdf'), pagesize=(210*mm,297*mm), pageCompression=1)
     c.setTitle(design.name)
     out=[f'<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="{297*len(nets)}mm" viewBox="0 0 210 {297*len(nets)}">', f'<rect width="210" height="{297*len(nets)}" fill="white"/>']
     for i,(part,net) in enumerate(zip(design.parts,nets)):
-        outside=_commands(part,net)
+        outside=_commands(part,net,scale=scale)
         _canvas_draw(c,outside)
         c.setFillColor(HexColor('#333333')); c.setFont('Helvetica', 8)
         c.drawRightString(200*mm, 286*mm, str(2*i+1)); c.showPage()
-        _canvas_draw(c,_commands(part,net,True,contacts[i],design.parts))
+        _canvas_draw(c,_commands(part,net,True,contacts[i],design.parts,scale))
         c.setFillColor(HexColor('#333333')); c.setFont('Helvetica', 8)
         c.drawRightString(200*mm, 286*mm, str(2*i+2)); c.showPage()
         out.extend(_svg_draw(outside, i*297))
@@ -229,6 +244,7 @@ def export_assembly(design, nets, contacts, folder):
             decal=trimesh.Trimesh(vertices=verts,faces=faces,process=False)
             decal.visual.face_colors=list(bytes.fromhex(art.color[1:]))+[255]
             scene.add_geometry(decal,node_name=f'{part.id}_art_{j}')
+    scene.apply_scale(scale)
     (folder/'model.glb').write_bytes(scene.export(file_type='glb'))
 
 

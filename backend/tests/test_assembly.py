@@ -59,6 +59,26 @@ def test_duplex_mirrors_geometry_and_preserves_artwork(tmp_path):
     assert _contact_outline(part, net, _contacts(design.parts)[0][0]).shape == (4, 2)
 
 
+def test_shared_scale_fills_page_and_keeps_duplex_aligned(tmp_path):
+    from foldable.assembly import assembly_scale
+    design = assembly()
+    design.parts[1].width_mm = 20
+    nets = [solve(part, tmp_path) for part in design.parts]
+    factor = assembly_scale(nets)
+    sizes = []
+    for part, net in zip(design.parts, nets):
+        front = _commands(part, net, scale=factor)
+        back = _commands(part, net, True, scale=factor)
+        border = [cmd for cmd in front if cmd[0] == 'poly' and cmd[3] == '#888888'][0][1]
+        sizes.append(np.ptp(border, axis=0))
+        assert np.all(border.min(axis=0) >= [13-1e-6, 13-1e-6])
+        assert np.all(border.max(axis=0) <= [197+1e-6, 278+1e-6])
+        mirrored = border.copy(); mirrored[:, 0] = 210 - mirrored[:, 0]
+        assert any(cmd[0] == 'poly' and cmd[1].shape == mirrored.shape and np.allclose(cmd[1], mirrored) for cmd in back)
+    assert any(np.isclose(size[0], 184) or np.isclose(size[1], 265) for size in sizes)
+    assert np.max(sizes[0]) > np.max(sizes[1])
+
+
 def test_two_part_output_has_duplex_pages_and_assembled_geometry(tmp_path, monkeypatch):
     import trimesh
     from pypdf import PdfReader
@@ -74,7 +94,8 @@ def test_two_part_output_has_duplex_pages_and_assembled_geometry(tmp_path, monke
         assert str(index) in page.extract_text().splitlines()
     model = trimesh.load(folder / "model.glb", force="scene")
     assert len(model.geometry) == 4  # two boxes plus their printed face marks
-    assert np.allclose(model.bounds[:, 1], [-.045, .015], atol=.0001)
+    assert result['stats']['scale_applied'] > 1
+    assert np.allclose(model.bounds[:, 1], np.array([-.045, .015]) * result['stats']['scale_applied'], atol=.0001)
     assert '#a38769' in (folder / 'net.svg').read_text()
     assert '#eecbaa' in (folder / 'net.svg').read_text()
 
