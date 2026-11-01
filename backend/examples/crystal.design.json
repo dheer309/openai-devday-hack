@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "name": "Little crystal",
+  "shape": "crystal",
+  "proportions": {"width": 0.9, "height": 1.3, "depth": 0.9},
+  "ears": "none",
+  "size_mm": 55,
+  "face": {"eyes": "round", "mouth": "smile", "whiskers": false, "markings": "forehead_patch"}
+}

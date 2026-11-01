@@ -1,5 +1,58 @@
 # Shared interface: freeze before parallel implementation
 
+## Approved extension: OpenAI-only procedural models (version 2)
+
+The existing version-1 interface below remains supported without response-shape changes. Track B's current strict cube validator can integrate immediately. To enable variable shapes, extend the frontend schema to a discriminated union on `version`.
+
+Version-2 request to the same `POST /render` route:
+
+```json
+{
+  "version": 2,
+  "name": "Pocket cat",
+  "shape": "rounded",
+  "proportions": {"width": 1.1, "height": 0.9, "depth": 0.8},
+  "ears": "pointed",
+  "size_mm": 55,
+  "face": {"eyes": "sleepy", "mouth": "smile", "whiskers": true, "markings": "none"}
+}
+```
+
+- `shape`: `box`, `rounded`, `diamond`, or `crystal`.
+- `proportions.width/height/depth`: numbers in 0.75-1.3. These modify silhouette, not just artwork.
+- `ears`: `none` or `pointed`. Pointed ears belong to the same closed convex shell; they are a stylised silhouette feature.
+- `size_mm`: 40-65, requested largest model dimension. The backend may uniformly reduce it to fit A4 while preserving tab usability; return the actual size and applied scale.
+- Facial styles use the existing enums. `name` uses printable Latin-script text up to 48 characters.
+- Unknown properties/shapes are rejected. Not every allowed parameter combination is guaranteed printable. A 422 is a real outcome if assembly checks fail.
+- This is procedural design from an AI specification, not a native arbitrary image-to-mesh model. The only paid inference service is OpenAI, called by Track B.
+- `GET /design-schema` exposes the Pydantic JSON schema for version 2. Track B should make all object properties required when adapting it for OpenAI strict Structured Outputs and handle refusals/errors explicitly.
+- `GET /examples` returns available fixture designs. A fixture is not a live AI result.
+
+The version-2 success response preserves `design`, `mode`, asset URLs, and `validation`. It adds `engine: "Blender Export Paper Model 1.4.2"` and `interpretation: "procedural_low_poly"`. Its stats are:
+
+```json
+{
+  "panel_count": 20,
+  "triangle_count": 20,
+  "page_count": 1,
+  "paper": "A4",
+  "size_mm": 55,
+  "requested_size_mm": 55,
+  "scale_applied": 1.0,
+  "glue_join_count": 11,
+  "piece_count": 1,
+  "minimum_tab_depth_mm": 6.0
+}
+```
+
+Numbers above illustrate the shape of the response; use the actual returned measurements. Unlike v1, panel/triangle counts vary. Additional checks include tab usability, receiver fit, minimum edge length, and assembly complexity.
+
+The service keeps synchronous `/render`, caches complete validated results, and returns 503 `RENDER_BUSY` if another render is in progress. There is no remote 3D-generation queue. Allow 120 seconds for the frontend request: typical fixture exports take around 4-5 seconds locally, but a difficult design can require three 35-second attempts. Do not synthesize progress percentages.
+
+`GET /health` continues to report `contract_version: 1` for compatibility and adds `supported_versions: [1,2]`, engine name, and `engine_ready`. Backend `/api/assets/...` aliases also work directly during development; the frontend proxy contract is unchanged.
+
+## Original version-1 contract (compatibility)
+
 Both tracks implement this contract. This file is a specification; no service exists yet. A coordinated change must update both implementations together.
 
 ## Development layout

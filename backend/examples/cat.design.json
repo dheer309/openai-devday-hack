@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "name": "Pocket cat",
+  "shape": "rounded",
+  "proportions": {"width": 1.1, "height": 0.9, "depth": 0.8},
+  "ears": "pointed",
+  "size_mm": 55,
+  "face": {"eyes": "sleepy", "mouth": "smile", "whiskers": true, "markings": "none"}
+}

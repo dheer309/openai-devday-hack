@@ -1,0 +1,4 @@
+Source: https://github.com/addam/Export-Paper-Model-from-Blender
+Commit: d688dcd147b27c43fe15e086f2872d0a24b218bf
+Author: Adam Dominec and contributors
+Core files copied without modification.

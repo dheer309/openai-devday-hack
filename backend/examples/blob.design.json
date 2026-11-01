@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "name": "Happy pebble",
+  "shape": "rounded",
+  "proportions": {"width": 1.1, "height": 1, "depth": 0.9},
+  "ears": "none",
+  "size_mm": 50,
+  "face": {"eyes": "happy", "mouth": "open", "whiskers": false, "markings": "freckles"}
+}

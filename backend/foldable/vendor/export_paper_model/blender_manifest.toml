@@ -1,0 +1,13 @@
+schema_version = "1.0.0"
+id = "export_paper_model"
+name = "Export Paper Model"
+version = "1.4.2"
+tagline = "Export printable net of a Mesh object"
+maintainer = "Adam Dominec"
+type = "add-on"
+tags = ["Import-Export"]
+blender_version_min = "5.0.0"
+license = ["SPDX:GPL-3.0-or-later"]
+website = "https://projects.blender.org/extensions/io_export_paper_model"
+[permissions]
+files = "Export files to disk"

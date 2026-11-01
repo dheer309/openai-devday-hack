@@ -1,5 +1,21 @@
 # Foldable AI: implementation instructions
 
+## Current approved scope (supersedes the older cube-only sections below)
+
+The user has explicitly revised the scope during implementation:
+
+- Paid API usage is OpenAI only. Do not introduce Tripo/Meshy or another paid provider.
+- Text or a photo/pet reference becomes a structured design specification. Deterministic geometry code builds a stylised low-poly model from supported shapes and proportions. No arbitrary-photo reconstruction claim.
+- Models must vary: `box`, `rounded`, `diamond`, and `crystal`, with proportion controls and optional pointed ears. The cube is a compatibility fixture and fallback, not the entire product.
+- Exactly one A4 sheet per model, black outlines only. Multiple paper pieces on the sheet are allowed.
+- Use the established Blender **Export Paper Model** add-on for unfolding, tab geometry, and packing. Do not ship the custom unfolder or newer Papercraft Pro core.
+- Prioritise human assembly: target 6 mm tabs; reject tabs under 4.5 mm, overly short edges, overlaps, missing mates, excessive joins/pieces, and layouts that do not fit. Software validation does not establish physical usability.
+- Preserve the existing version-1 cube request/response for Track B. Add version 2 as specified in `docs/interface-contract.md`; keep synchronous `/render` because local procedural geometry does not need a remote generation job.
+- User authorized updating this brief and the shared contract on `build/geometry-print`. Track A still owns backend implementation; no frontend source changes in this branch.
+- The backend combines GPL-3.0-or-later Export Paper Model source and is distributed under that license with attribution and pinned upstream revision. See `backend/LICENSE` and `backend/THIRD_PARTY.md`.
+
+These decisions take precedence over references to a cube-only release, Tripo, or an unverified alternative engine in the historical plan below.
+
 ## Mission and deadline
 
 Build a working hackathon product in three hours with two people: turn text, a photo, or a ChatGPT pet reference into a small paper character. Show the printable 3D model, then export a numbered A4 PDF with glue tabs and black outline details.

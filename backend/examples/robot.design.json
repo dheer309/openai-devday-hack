@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "name": "Sleepy robot",
+  "shape": "box",
+  "edge_mm": 40,
+  "face": {"eyes": "sleepy", "mouth": "smile", "whiskers": false, "markings": "freckles"}
+}
