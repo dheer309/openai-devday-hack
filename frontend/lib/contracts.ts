@@ -28,7 +28,7 @@ const shared = {
   validation: z.object({ status: z.literal("passed"), checks: z.array(z.string()) }).strict(),
 };
 const v1Result = z.object({ ...shared, design: designV1Schema, stats: z.object({ panel_count: z.literal(6), triangle_count: z.literal(12), page_count: z.literal(1), edge_mm: z.literal(40), paper: z.literal("A4") }).strict() }).strict();
-const v2Result = z.object({ ...shared, design: designV2Schema, engine: z.literal("Blender Export Paper Model 1.4.2"), interpretation: z.literal("procedural_low_poly"), stats: z.object({
+const v2Result = z.object({ ...shared, design: designV2Schema, engine: z.enum(["Blender Export Paper Model 1.4.2", "Foldable local unfold"]), interpretation: z.literal("procedural_low_poly"), stats: z.object({
   panel_count: z.number().int().min(4).max(24), triangle_count: z.number().int().min(4).max(96), page_count: z.literal(1), paper: z.literal("A4"),
   size_mm: z.number().positive().max(65), requested_size_mm: z.number().min(40).max(65), scale_applied: z.number().positive().max(1),
   glue_join_count: z.number().int().min(1).max(18), piece_count: z.number().int().min(1).max(3), minimum_tab_depth_mm: z.number().min(4.498),

@@ -76,3 +76,9 @@ test("version 2 requires every additional assembly check and matching proportion
   assert.equal(sameDesign(v2, { ...v2, proportions: { ...v2.proportions, depth: 1 } }), false);
   assert.equal(sameDesign(v2, { ...v2, ears: "none" }), false);
 });
+
+
+test("version 2 accepts both supported local unfolding engines", () => {
+  assert.equal(renderResultSchema.safeParse({ ...validV2Render(), engine: "Foldable local unfold" }).success, true);
+  assert.equal(renderResultSchema.safeParse({ ...validV2Render(), engine: "unvalidated-generator" }).success, false);
+});
