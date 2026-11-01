@@ -50,3 +50,18 @@ test("separates four generic sibling parts along both axes", () => {
   const result = separateFeet(source);
   assert.deepEqual(result.slice(1).map(p => [p.position.x, p.position.z]), [[-9.5, -9.5], [9.5, -9.5], [-9.5, 9.5], [9.5, 9.5]]);
 });
+
+test("snaps a nearby disconnected group without changing its internal joins", async () => {
+  const { connectNearParts } = await import("../lib/assembly-layout");
+  const parts = [part("body", 0, 0, 30, 30), part("head", 0, 26, 20, 20), part("ear", 0, 46, 20, 20)];
+  const fixed = connectNearParts(parts);
+  assert.equal(fixed[1].position.y, 25);
+  assert.equal(fixed[2].position.y, 45);
+  assert.equal(parts[1].position.y, 26);
+});
+
+test("does not move a faraway group to fabricate a join", async () => {
+  const { connectNearParts } = await import("../lib/assembly-layout");
+  const parts = [part("body", 0, 0, 30, 30), part("head", 0, 45, 20, 20)];
+  assert.deepEqual(connectNearParts(parts), parts);
+});

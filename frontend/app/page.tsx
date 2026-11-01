@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import ModelViewer from "@/components/ModelViewer";
 import ImageCropper from "@/components/ImageCropper";
+import { connectNearParts } from "@/lib/assembly-layout";
 import { designSchema, renderResultSchema, requiredChecks, sameDesign, type DesignSpec, type DesignV2, type RenderResult } from "@/lib/contracts";
 
 type InputType = "text" | "photo";
@@ -115,9 +116,10 @@ export default function Home() {
       const parsed = designSchema.safeParse(body.design);
       if (!parsed.success || body.source !== "ai") throw { message: "AI did not return a supported design. Please retry or use the manual controls.", details: [] };
       if (signal.aborted || requestEpoch.current !== epoch) return;
-      setDesign(parsed.data);
+      const next = parsed.data.version === 3 ? { ...parsed.data, parts: connectNearParts(parsed.data.parts) } : parsed.data;
+      setDesign(next);
       setSource("ai");
-      await requestRender(parsed.data, epoch, signal);
+      await requestRender(next, epoch, signal);
     } catch (error) {
       if (!signal.aborted && requestEpoch.current === epoch) setFailure(asFailure(error));
     } finally {
@@ -134,8 +136,9 @@ export default function Home() {
       setBusy(null);
       return;
     }
-    setDesign(parsed.data);
-    try { await requestRender(parsed.data, epoch, signal); }
+    const next = parsed.data.version === 3 ? { ...parsed.data, parts: connectNearParts(parsed.data.parts) } : parsed.data;
+    setDesign(next);
+    try { await requestRender(next, epoch, signal); }
     catch (error) { if (!signal.aborted && requestEpoch.current === epoch) setFailure(asFailure(error)); }
     finally { if (requestEpoch.current === epoch) setBusy(null); }
   };

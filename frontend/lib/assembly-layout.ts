@@ -45,3 +45,55 @@ export function separateFeet(parts: Part[], gap = 4): Part[] {
   }
   return result;
 }
+
+/** Snap nearby disconnected groups together without changing their internal layout. */
+export function connectNearParts(parts: Part[], maxMove = 8): Part[] {
+  const result = parts.map(part => ({ ...part, position: { ...part.position } }));
+  const profile = (part: Part, axis: Axis, along: Axis) => {
+    const shape = part.shape ?? "box";
+    if (axis === "x" && along === "y") return shape === "diamond" ? 0 : shape === "crystal" ? .3 : shape === "rounded" ? .6 : 1;
+    if (axis === "y" && along === "x") return shape === "diamond" ? .32 : shape === "crystal" ? .44 : shape === "rounded" ? .6 : 1;
+    return 1;
+  };
+  const faceOverlap = (a: Part, b: Part, axis: Axis, along: Axis) =>
+    (a[dimension[along]] * profile(a, axis, along) + b[dimension[along]] * profile(b, axis, along)) / 2 - Math.abs(a.position[along] - b.position[along]);
+  const connected = (a: Part, b: Part) => axes.some(axis =>
+    Math.abs(overlap(a, b, axis)) <= .05 && axes.filter(k => k !== axis).every(k => faceOverlap(a, b, axis, k) > 2));
+  const component = (start: number) => {
+    const found = new Set([start]), queue = [start];
+    while (queue.length) {
+      const i = queue.pop()!;
+      result.forEach((part, j) => { if (!found.has(j) && connected(result[i], part)) { found.add(j); queue.push(j); } });
+    }
+    return found;
+  };
+  if (result.length < 2) return result;
+  // Anchor the largest part and keep all already joined parts together.
+  const anchor = result.reduce((best, p, i) => p.width_mm * p.height_mm * p.depth_mm > result[best].width_mm * result[best].height_mm * result[best].depth_mm ? i : best, 0);
+  for (let attempt = 0; attempt < result.length; attempt++) {
+    const fixed = component(anchor);
+    if (fixed.size === result.length) break;
+    let best: { group: Set<number>; axis: Axis; delta: number } | undefined;
+    for (let i = 0; i < result.length; i++) {
+      if (fixed.has(i)) continue;
+      const group = component(i);
+      for (const j of fixed) for (const axis of axes) {
+        const a = result[i], b = result[j];
+        if (!axes.filter(k => k !== axis).every(k => faceOverlap(a, b, axis, k) > 2)) continue;
+        const half = (a[dimension[axis]] + b[dimension[axis]]) / 2;
+        for (const sign of [-1, 1]) {
+          const delta = b.position[axis] + sign * half - a.position[axis];
+          if (Math.abs(delta) < .001 || Math.abs(delta) > maxMove || (best && Math.abs(delta) >= Math.abs(best.delta))) continue;
+          for (const k of group) result[k].position[axis] += delta;
+          const safe = [...group].every(k => Math.abs(result[k].position[axis]) <= 150 && result.every((other, n) =>
+            group.has(n) || !axes.every(key => overlap(result[k], other, key) > .05)));
+          for (const k of group) result[k].position[axis] -= delta;
+          if (safe) best = { group, axis, delta };
+        }
+      }
+    }
+    if (!best) break;
+    for (const k of best.group) result[k].position[best.axis] += best.delta;
+  }
+  return result;
+}
