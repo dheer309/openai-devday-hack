@@ -1,0 +1,16 @@
+{
+  "name": "foldable-ai-workspace",
+  "private": true,
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "node scripts/dev.mjs",
+    "start": "node scripts/dev.mjs --production",
+    "build": "npm --prefix frontend run build",
+    "test": "npm run test:frontend && npm run test:backend",
+    "test:frontend": "npm --prefix frontend test",
+    "test:backend": "node scripts/backend-tests.mjs",
+    "typecheck": "npm --prefix frontend run typecheck",
+    "check:integration": "npm --prefix frontend run check:integration"
+  }
+}

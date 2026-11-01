@@ -1,100 +1,91 @@
 # Foldable AI
 
-Bring your ChatGPT pet into the real world: turn a description or reference image into an editable, monochrome **40 mm box mascot**. This is a stylised interpretation. The geometry service supplies the exact 3D model, paper net and A4 PDF.
+Turn a description or reference image into a stylised paper character. The app interprets the reference with OpenAI, builds the actual low-poly geometry, shows its matching 3D model and paper net, and downloads a validated one-page A4 PDF.
 
-## Track B: app and AI
+## Run everything
 
-This implementation lives on `build/app-ai`. Track A owns `backend/` on its own branch; this branch does not implement or replace that service. Merge the two branches when ready. The frozen [interface contract](docs/interface-contract.md) is unchanged.
-
-### Run the app
-
-Use Node.js 22 or newer and npm. Builds use two workers to limit local load.
+Requirements: Node.js 22+ and either Python 3 or [uv](https://docs.astral.sh/uv/). From the repository root:
 
 ```sh
-cd frontend
-npm ci
-cp .env.example .env.local
 npm run dev
 ```
 
-Open http://127.0.0.1:3000. Set these **server-only** variables in `frontend/.env.local`, then restart the app:
+On the first run, this installs the locked web dependencies, reuses or prepares Python 3.11, and installs the backend and Blender runtime. The Blender download is substantial; subsequent starts reuse the installation. The launcher starts both services, checks that the geometry engine is ready, and serves the web app at **http://127.0.0.1:3000**. Press Ctrl+C to stop both services.
 
-| Variable | Purpose |
-| --- | --- |
-| `OPENAI_API_KEY` | An OpenAI project API key. Never use a `NEXT_PUBLIC_` variable. |
-| `OPENAI_MODEL` | A model available to that project supporting image inputs and Structured Outputs. `gpt-5-mini` was available in the development account; select the model appropriate for your account. |
-| `GEOMETRY_API_URL` | Geometry service origin. Defaults to `http://127.0.0.1:8000`. No path suffix. |
+For AI interpretation, put your own credentials in `frontend/.env.local` (the launcher creates this file from `.env.example` if missing), then restart:
 
-Credentials are optional for the saved example and manual editing. Without credentials, AI interpretation displays a setup message. Without the geometry service, the editor remains usable, and 3D/net/PDF remain unavailable with an explicit retry. There are no fabricated preview assets or successful print statuses.
+```dotenv
+OPENAI_API_KEY=your-project-key
+OPENAI_MODEL=gpt-5-mini
+```
 
-Production build/run, still local:
+The key stays on the server and is ignored by Git. Choose a vision-capable Structured Outputs model available to your OpenAI project. AI uses the OpenAI Responses API with response storage disabled. **Design manually** creates real printable models without an API key; it does not substitute a saved example.
+
+For the production build and both services:
 
 ```sh
-cd frontend
-npm run build
 npm start
 ```
 
-### Use the studio
+This performs setup, builds the web app, and serves it with the geometry backend. To install dependencies without starting the app, use `npm run setup`. `PORT` and `GEOMETRY_PORT` default to 3000 and 8000. The combined launcher wires the frontend to its backend automatically.
 
-1. Choose **Image** or **Text**, supply the reference, then select **Make paper pet**. Image uploads accept PNG/JPEG/WebP up to 5 MiB.
-2. Open **Adjust features** to correct the name, eyes, mouth, whiskers or markings, then select **Update preview**. **Use example** loads the saved robot without AI.
-3. The viewer loads the backend GLB; **Paper net** displays its SVG. Editing invalidates the previous result immediately.
-4. **Download PDF** enables only for the current design after all eight print checks pass and its model and net load successfully. Validation details stay under **Print checks**.
+## Create a character
 
-For an uploaded sprite sheet, open **Image options**, choose **Sprite sheet**, set its rows/columns, and select one frame. Only that crop is sent to OpenAI. This is an image tool, not a ChatGPT account integration.
+- **Image:** upload PNG, JPEG or WebP up to 5 MiB. Optional guidance can accompany the image. For an animation sheet, use Image options to select one frame; the full sheet is not sent as one character.
+- **Text:** describe the character and create its design with AI.
+- **Design manually:** name and choose a shape, then create a model without AI.
 
-Uploads stay in browser memory until you ask for interpretation. The server sends the description and selected image to OpenAI with response storage disabled. The key never reaches the client.
+Adjust shape, dimensions, proportions, ears and facial features under **Adjust features**. Updating any design invalidates the previous printable result. The backend supports box, rounded, diamond and crystal silhouettes; every shape uses real procedural geometry. This is a constrained interpretation rather than arbitrary photo-to-mesh reconstruction.
 
-### ChatGPT account pets: access limitation
+The viewer loads the backend GLB, and the paper-net view loads its SVG. There are no preloaded example results or simulated success states. Download unlocks only after the current design passes all required geometry, tab, page and assembly checks and its model/net have loaded. A failed layout gives an actionable error; it is never silently replaced with a cube.
 
-The requested flow is per visitor: sign into their own ChatGPT account, list their own pets, select a thumbnail, and make a net. It is not implemented or represented by an upload tab. No local pet-library snapshot is used.
+The backend may reduce a version-2 design uniformly to fit A4 while preserving usable glue tabs. The result reports the actual size and scale. Some extreme combinations are intentionally rejected if they cannot be assembled comfortably.
 
-[Sign in with ChatGPT](https://developers.openai.com/siwc/quickstart) documents identity and separately authorized Responses API access; no supported pet-library scope or endpoint was established. A registered website OAuth client alone would not supply pet-library access. The host-authenticated Pets connector in a Codex chat cannot be reused as credentials for other website visitors.
+## Printing
 
-[Connected-data Sites](https://learn.chatgpt.com/docs/sites/data-and-connections) can use each visitor’s own app connections in eligible workspace-private Sites, but Pets eligibility could not be verified with the tools available here. Completing the selector requires a sanctioned Pets endpoint/permission or confirmed eligible per-visitor connector access. No working-looking login button is shown while that requirement is unresolved.
+Print the downloaded PDF on A4 portrait, single-sided, black on white, at **100% / Actual size**, with headers/footers off. Verify that its 20 mm calibration segment measures correctly before cutting. Solid lines are cuts, dashed lines are folds, and matching numbers identify glue seams. Leave the rear opening until the final closure. Detailed instructions are included on the PDF and in [backend/README.md](backend/README.md).
 
-## Integrate Track A
+Software checks establish geometry and page layout. Physical cutting, glue access, printer scaling and assembly still need a human check; no physical test is claimed by this repository.
 
-Start the backend using **Track A’s own start command** on port 8000. Its module path and dependencies are not assumed here. No backend commit is integrated yet.
-
-| App route | Backend route / responsibility |
-| --- | --- |
-| `POST /api/design` | Frontend server → OpenAI Responses API; strict DesignSpec output |
-| `GET /api/example` | Reads `backend/examples/robot.design.json` when available, otherwise the committed contract example in `frontend/examples/` |
-| `GET /api/config` | Configuration booleans only; no credentials |
-| `GET /api/geometry-health` | `GET /health` |
-| `POST /api/render` | `POST /render`, DesignSpec directly, unchanged |
-| `GET /api/assets/:assetId/:filename` | `GET /assets/:assetId/:filename`; allowlisted GLB/SVG/PDF only |
-
-The server validates the response against the contract, checks that its design matches the request, requires all eight validation checks, and requires all assets to share one identifier. Backend validation errors retain their actionable messages. Failed requests never produce a downloadable result. Upload bodies are streamed with a 7 MiB total limit and 5 MiB decoded-image limit.
-
-Once the backend is running beside the app:
+## Verify
 
 ```sh
-cd frontend
-npm run check:integration
-```
-
-This checks the **real** health/fixture/render/asset path and saves the returned GLB/SVG/PDF in ignored `work/integration/`. It never substitutes a mock service. It fails clearly while Track A is unavailable.
-
-## Verify before printing
-
-```sh
-cd frontend
 npm run typecheck
 npm test
 npm run build
 ```
 
-Browser checks after merging Track A: load the saved example, rotate the returned GLB, inspect the net, interpret text and an uploaded image, select a sprite frame, manually edit a feature and confirm the old download disables, rebuild, and download the PDF. Test a failed validation and a stopped geometry service as well.
+`npm test` runs the frontend contract/input/proxy checks and the real backend geometry/export tests. Backend tests use Blender sequentially and reopen GLB/PDF outputs. Builds use two workers; the backend handles one uncached rendering job at a time and caches complete validated exports.
 
-Inspect the actual downloaded PDF and printer preview: **A4 portrait, single-sided, black on white, 100% / actual size**, with headers and footers off. Check for clipping and measure the labelled 20 mm scale segment. Print two hero copies and the robot fallback if permitted. Use the backend’s numbered seam pairs and closing order. Do not call the design physically tested until someone has cut, folded and assembled it.
+With the app running, check a complete live text-to-export request:
 
-Verified on this branch: TypeScript check, production build, 19 focused contract/input/crop/proxy tests, live OpenAI text and selected-image interpretation, and a production browser check of the saved example, live text result, manual edits, sprite upload/frame selection, missing-backend error, and disabled PDF. The browser bundle was checked for accidental credential inclusion. Proxy tests use explicit test doubles; they are not evidence of a completed geometry integration.
+```sh
+npm run check:integration -- --text "A sleepy cat named Pip with little whiskers"
+```
 
-The real integration check currently stops at the unavailable geometry service, as expected. The backend, real GLB/net/PDF browser path, PDF/print-preview inspection, print batch and physical assembly remain Track A/operator integration work. No backend commit is integrated and no printer-ready sample is claimed by this frontend-only branch.
+Or validate a supplied specification:
 
-## References
+```sh
+npm run check:integration -- --design ../backend/examples/cat.design.json
+```
 
-The implementation follows the official [OpenAI image-input guidance](https://developers.openai.com/api/docs/guides/images-vision) and [Structured Outputs guidance](https://developers.openai.com/api/docs/guides/structured-outputs). Project scope, ownership and physical-demo requirements remain in [AGENTS.md](AGENTS.md), [Prompt 1](prompts/01-geometry-print.md) and [Prompt 2](prompts/02-app-ai.md).
+The check downloads the actual GLB, SVG and PDF through the frontend proxy into ignored `work/integration/`. Committed example specifications are test fixtures, not preloaded app demos.
+
+## Service layout
+
+- `frontend/`: Next.js/TypeScript app and server-only OpenAI adapter.
+- `backend/`: FastAPI, deterministic geometry, Blender Export Paper Model adapter, independent print validation and exporters.
+- `POST /api/design`: interprets text or one reference image into the version-2 design schema.
+- `GET /api/geometry-health`, `POST /api/render`, `GET /api/assets/:id/:filename`: frontend proxy routes to the local backend.
+- Backend: `GET /health`, `GET /design-schema`, `POST /render`, `GET /assets/:id/:filename`.
+- Version-1 cube designs remain compatible; version 2 enables variable shapes and dimensions. See [the interface contract](docs/interface-contract.md).
+
+Advanced backend settings are documented in `backend/.env.example`. A compatible external Blender executable can be selected with `BLENDER_BIN`, or a separate bpy interpreter with `BLENDER_PYTHON`; otherwise the launcher installs the pinned bpy runtime. The backend stores session exports in ignored `backend/storage/` (override with `FOLDABLE_STORAGE`). Its separate-service commands are in [backend/README.md](backend/README.md).
+
+## ChatGPT account pets
+
+The application accepts character images, including exported ChatGPT pet images. It does not claim that an OpenAI API key or ChatGPT sign-in grants access to a visitor's pet library. No supported pet-library endpoint/permission was established for a standalone website. There is no fake account connection or shared snapshot of another user's pets. See [official sign-in guidance](https://developers.openai.com/siwc/quickstart).
+
+## Attribution
+
+The backend incorporates Blender Export Paper Model 1.4.2 and is distributed under GPL-3.0-or-later. Preserve [backend/LICENSE](backend/LICENSE) and [backend/THIRD_PARTY.md](backend/THIRD_PARTY.md). This does not assign that license to the independently maintained frontend.
