@@ -173,25 +173,21 @@ export default function ModelViewer({ modelUrl, assembly, onReady, onError }: Pr
           for (const axis of axes) {
             const end = origin.clone().addScaledVector(axis.direction, axis.length);
             const geometry = new THREE.BufferGeometry().setFromPoints([origin, end]);
-            const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0x59665b, depthTest: false }));
-            line.renderOrder = 10;
+            const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0x59665b, depthTest: true, depthWrite: false }));
             guides.add(line);
             const canvas = document.createElement("canvas");
             canvas.width = 512; canvas.height = 104;
             const ctx = canvas.getContext("2d");
             if (ctx) {
-              ctx.fillStyle = "rgba(250, 250, 247, 0.94)";
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
               ctx.fillStyle = "#33463a";
               ctx.font = "600 46px sans-serif";
               ctx.textAlign = "center"; ctx.textBaseline = "middle";
               ctx.fillText(`${axis.label} ${Math.round(axis.length * 10000) / 10} mm`, 256, 52);
               const texture = new THREE.CanvasTexture(canvas);
               texture.colorSpace = THREE.SRGBColorSpace;
-              const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+              const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true, depthWrite: false }));
               label.position.copy(origin).addScaledVector(axis.direction, axis.length * 0.55);
-              label.scale.set(diameter * 0.55, diameter * 0.112, 1);
-              label.renderOrder = 11;
+              label.scale.set(diameter * 0.32, diameter * 0.065, 1);
               guides.add(label);
             }
           }
