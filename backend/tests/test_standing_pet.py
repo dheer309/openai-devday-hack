@@ -48,6 +48,9 @@ def test_pdf_labels_margin_scale_and_glb_match(standing):
         for page in doc:
             np.testing.assert_allclose([page.rect.width, page.rect.height], np.array([210, 297])*72/25.4, atol=.01)
         text = doc[1].get_text()
+        assert 'BODY HERE' in doc[0].get_text()
+        assert 'GLUE TO HEAD' in doc[0].get_text()
+        assert 'BODY HERE' not in text and 'GLUE TO HEAD' not in text
         for prefix in ('H', 'B'):
             for number in range(1, 8):
                 assert text.split().count(f'{prefix}{number}') == 2

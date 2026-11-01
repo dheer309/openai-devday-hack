@@ -146,12 +146,15 @@ def draw_part(d, part, inside=False):
         for xy in part.paths:
             world = np.column_stack((xy, np.full(len(xy), part.dims[2]/2)))
             d.line(on_face(part, (0, 0, 1), world), .32)
+    if inside:
         return
     # The two large exterior surfaces are the attachment joint, no extra tabs.
     normal = (0, -1, 0) if part.name == 'head' else (0, 1, 0)
     y = -part.dims[1]/2 if part.name == 'head' else part.dims[1]/2
     # Four discrete corner guides cannot be mistaken for a fold rectangle.
-    w, depth = (22, 20) if part.name == 'head' else (16, 14)
+    # The head's marks lie strictly inside the smaller body's footprint,
+    # so the assembled joint hides all of the outside attachment ink.
+    w, depth = (18, 16) if part.name == 'head' else (16, 14)
     for sx, sz in itertools.product((-1, 1), repeat=2):
         pts = np.array([[sx*(w/2-2), y, sz*depth/2],
                         [sx*w/2, y, sz*depth/2], [sx*w/2, y, sz*(depth/2-2)]])
@@ -260,7 +263,7 @@ def build(output):
     inside = Drawing()
     d.text(10, 283, 'BSOD / STANDING PAPER COMPANION', 15, bold=True)
     d.text(10, 276, 'OUTSIDE / artwork side. Cut solid outlines; score dashed folds.', 8)
-    d.text(10, 269, 'Head and body labels are printed on the INSIDE of the sheet.', 7)
+    d.text(10, 269, 'Seam numbers inside; head and body attachment marks outside.', 7)
     d.text(10, 258, 'HEAD / 36 x 30 x 26 mm', 8, bold=True)
     d.text(120, 231, 'BODY / 22 x 24 x 20 mm', 8, bold=True)
     for part in parts:
@@ -308,7 +311,7 @@ def build(output):
     for y, text in [(45, '1  Score the dashed folds and fold them away from the outside artwork.'),
                     (39, '2  Glue H4-H7. Keep the face open; then close joins H1-H3.'),
                     (33, '3  Glue B4-B7. Keep the front open; then close joins B1-B3.'),
-                    (27, '4  Glue body top to head bottom, aligning the corner guides and front faces.')]:
+                    (27, '4  Glue the marked OUTSIDE of body top to the marked OUTSIDE of head bottom.')]:
         back.text(10, y, text, 7)
     back.text(10, 18, 'A4 / DUPLEX / FLIP LONG EDGE / ACTUAL SIZE 100%', 7, bold=True)
     back.text(10, 12, 'Hold against light: crosses must overlap. Check the 20 mm line on front.', 6.5)
