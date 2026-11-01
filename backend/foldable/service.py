@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import threading
 import time
 import uuid
@@ -27,6 +28,7 @@ def render_design(design):
         return json.loads(manifest.read_text())
     if not LOCK.acquire(blocking=False):
         raise PrintError("Another model is rendering. Retry in a few seconds.", ["render_busy"])
+    staging = None
     try:
         STORAGE.mkdir(parents=True, exist_ok=True)
         staging = STORAGE / ("_pending-" + uuid.uuid4().hex)
@@ -65,4 +67,10 @@ def render_design(design):
         staging.rename(folder)
         return result
     finally:
+        # Failed jobs are never publishable assets and must not accumulate.
+        if staging is not None and staging.exists():
+            engine_log = staging / "engine.log"
+            if engine_log.is_file():
+                shutil.copyfile(engine_log, STORAGE / "last-engine-error.log")
+            shutil.rmtree(staging, ignore_errors=True)
         LOCK.release()

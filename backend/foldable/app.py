@@ -3,6 +3,8 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
+import subprocess
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -47,7 +49,21 @@ async def request_limit(request: Request, call_next):
 @app.get("/health")
 def health():
     executable = os.environ.get("BLENDER_BIN")
-    ready = Path(executable).is_file() if executable else importlib.util.find_spec("bpy") is not None
+    python = os.environ.get("BLENDER_PYTHON")
+    if executable:
+        ready = bool(shutil.which(executable))
+    elif python:
+        try:
+            probe = subprocess.run(
+                [python, "-c", "import importlib.util; raise SystemExit(importlib.util.find_spec('bpy') is None)"],
+                capture_output=True, timeout=5,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            ready = probe.returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            ready = False
+    else:
+        ready = importlib.util.find_spec("bpy") is not None
     return {"status": "ok", "contract_version": 1, "supported_versions": [1, 2],
             "engine": "Export Paper Model 1.4.2", "engine_ready": ready}
 

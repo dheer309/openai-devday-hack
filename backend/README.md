@@ -16,6 +16,8 @@ The bpy wheel is large (approximately 340 MB on Windows). Alternatively install 
 
 Use **one Uvicorn worker**: rendering is serialised with a process-local lock. Another simultaneous uncached render gets HTTP 503 `RENDER_BUSY`. Outputs are cached in `backend/storage` (or `FOLDABLE_STORAGE`) for the session. Keep this service local for the hackathon. Typical fixture exports measured about 4-5 seconds locally; no remote AI generation occurs here. A difficult request can try three layouts/scales with a 35-second worker timeout per attempt; clients should allow 120 seconds or retry safely using the same design.
 
+Failed render directories are removed automatically. When the engine produced a diagnostic log, the latest failed job's log remains as `last-engine-error.log` in the render storage directory. Health checks respect both a configured Blender executable and a separate `BLENDER_PYTHON` interpreter.
+
 ## Integrate
 
 - `GET /health`: supported contract versions and runtime availability.

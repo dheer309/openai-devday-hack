@@ -176,7 +176,7 @@ def solve(design, workdir: Path):
             raise PrintError("Blender is unavailable or exceeded the render timeout. Check BLENDER_BIN or the bpy installation.", ["engine_unavailable"]) from exc
         (workdir / "engine.log").write_text(process.stdout + process.stderr, encoding="utf-8")
         if not output_file.exists():
-            raise PrintError("The Blender runtime could not start. See the local engine log.", ["engine_unavailable"])
+            raise PrintError("The Blender runtime could not start. Check last-engine-error.log in the render storage directory.", ["engine_unavailable"])
         raw = json.loads(output_file.read_text())
         if "error" in raw:
             last = PrintError("The unfolding engine could not fit this model on one A4 sheet.", ["unfold"])
