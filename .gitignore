@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.env*
+!.env.example
+*.tsbuildinfo
+__pycache__/
+.venv/
+.pytest_cache/
+work/
+backend/storage/
+backend/generated/
+playwright-report/
+test-results/
+.DS_Store
