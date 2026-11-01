@@ -1,7 +1,7 @@
 from typing import Annotated, Literal, Union
 import re
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -53,7 +53,51 @@ class DesignV2(NamedDesign):
     size_mm: float = Field(default=50.0, ge=40, le=65)
 
 
-Design = Annotated[Union[DesignV1, DesignV2], Field(discriminator="version")]
+class Position(StrictModel):
+    x: float = Field(ge=-150, le=150)
+    y: float = Field(ge=-150, le=150)
+    z: float = Field(ge=-150, le=150)
+
+
+class Artwork(StrictModel):
+    shape: Literal["rect", "ellipse"]
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+    width: float = Field(ge=0.02, le=1)
+    height: float = Field(ge=0.02, le=1)
+    color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
+
+    @model_validator(mode="after")
+    def inside_face(self):
+        if (self.x-self.width/2 < -1e-7 or self.x+self.width/2 > 1+1e-7 or
+            self.y-self.height/2 < -1e-7 or self.y+self.height/2 > 1+1e-7):
+            raise ValueError("Artwork must fit within the front face.")
+        return self
+
+
+class BoxPart(StrictModel):
+    id: str = Field(min_length=1, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
+    width_mm: float = Field(ge=20, le=40)
+    height_mm: float = Field(ge=20, le=40)
+    depth_mm: float = Field(ge=20, le=40)
+    position: Position
+    color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
+    artwork: list[Artwork] = Field(max_length=20)
+
+
+class DesignV3(StrictModel):
+    version: Literal[3]
+    name: str = Field(min_length=1, max_length=48)
+    parts: list[BoxPart] = Field(min_length=1, max_length=8)
+
+    @model_validator(mode="after")
+    def unique_parts(self):
+        if len({p.id for p in self.parts}) != len(self.parts):
+            raise ValueError("Part IDs must be unique.")
+        return self
+
+
+Design = Annotated[Union[DesignV1, DesignV2, DesignV3], Field(discriminator="version")]
 DESIGN_ADAPTER = TypeAdapter(Design)
 
 

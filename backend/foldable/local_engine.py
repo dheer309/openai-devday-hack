@@ -11,7 +11,7 @@ import numpy as np
 from shapely.geometry import LineString, Polygon
 
 from .geometry import make_solid
-from .models import DesignV1, PrintError
+from .models import DesignV1, BoxPart, PrintError
 
 
 EPS = 0.001
@@ -215,7 +215,7 @@ def _prism_net(solid, Net, Placed, Seam, neighbors, page_area, validate, deadlin
 
 def solve_local(design, workdir, Net, Placed, Seam, page_area, validate):
     rng = random.Random(81463)
-    scales = [1.0] if isinstance(design, DesignV1) else [1.0, .92, .84]
+    scales = [1.0] if isinstance(design, (DesignV1, BoxPart)) else [1.0, .92, .84]
     deadline = time.monotonic() + 18
     last = None
     for scale in scales:

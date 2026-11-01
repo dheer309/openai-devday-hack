@@ -8,7 +8,7 @@ export const maxDuration = 130;
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const parsed = designSchema.safeParse(await readJson(request, 8 * 1024));
+    const parsed = designSchema.safeParse(await readJson(request, 64 * 1024));
     if (!parsed.success) throw new ApiError(422, "UNSUPPORTED_DESIGN", "Correct the mascot features before rendering. Choose a supported shape, size, and proportions.",
       parsed.error.issues.map((issue) => `${issue.path.join(".") || "request"}: ${issue.message}`));
     const response = await geometryFetch("/render", request, {

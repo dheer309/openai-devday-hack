@@ -16,12 +16,27 @@ export const designV2Schema = z.object({
   proportions: z.object({ width: z.number().min(0.75).max(1.3), height: z.number().min(0.75).max(1.3), depth: z.number().min(0.75).max(1.3) }).strict(),
   ears: z.enum(["none", "pointed"]), size_mm: z.number().min(40).max(65), face: faceSchema,
 }).strict();
-export const designSchema = z.discriminatedUnion("version", [designV1Schema, designV2Schema]);
+const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+const artworkSchema = z.object({
+  shape: z.enum(["rect", "ellipse"]), x: z.number().min(0).max(1), y: z.number().min(0).max(1),
+  width: z.number().min(0.02).max(1), height: z.number().min(0.02).max(1), color: colorSchema,
+}).strict();
+export const designV3Schema = z.object({
+  version: z.literal(3), name: nameSchema,
+  parts: z.array(z.object({
+    id: z.string().regex(/^[A-Za-z0-9_-]{1,24}$/),
+    width_mm: z.number().min(20).max(40), height_mm: z.number().min(20).max(40), depth_mm: z.number().min(20).max(40),
+    position: z.object({ x: z.number().min(-150).max(150), y: z.number().min(-150).max(150), z: z.number().min(-150).max(150) }).strict(),
+    color: colorSchema, artwork: z.array(artworkSchema).max(20),
+  }).strict()).min(1).max(8),
+}).strict();
+export const designSchema = z.discriminatedUnion("version", [designV1Schema, designV2Schema, designV3Schema]);
 export type DesignSpec = z.infer<typeof designSchema>;
 export type DesignV2 = z.infer<typeof designV2Schema>;
+export type DesignV3 = z.infer<typeof designV3Schema>;
 export const REQUIRED_CHECKS = ["closed_mesh", "seam_lengths", "seam_labels", "one_tab_per_seam", "no_overlaps", "page_bounds", "label_legibility", "refold_geometry"] as const;
 export const V2_REQUIRED_CHECKS = [...REQUIRED_CHECKS, "usable_tabs", "minimum_edge_size", "tab_receiver_fit", "assembly_complexity"] as const;
-export function requiredChecks(design: DesignSpec): readonly string[] { return design.version === 2 ? V2_REQUIRED_CHECKS : REQUIRED_CHECKS; }
+export function requiredChecks(design: DesignSpec): readonly string[] { return design.version === 1 ? REQUIRED_CHECKS : V2_REQUIRED_CHECKS; }
 const assetPath = (filename: string) => z.string().regex(new RegExp(`^/api/assets/([A-Za-z0-9][A-Za-z0-9_-]{0,127})/${filename.replaceAll(".", "\\.")}$`));
 const shared = {
   mode: z.literal("supported"), model_url: assetPath("model.glb"), pdf_url: assetPath("net.pdf"), preview_url: assetPath("net.svg"),
@@ -33,7 +48,10 @@ const v2Result = z.object({ ...shared, design: designV2Schema, engine: z.enum(["
   size_mm: z.number().positive().max(65), requested_size_mm: z.number().min(40).max(65), scale_applied: z.number().positive().max(1),
   glue_join_count: z.number().int().min(1).max(18), piece_count: z.number().int().min(1).max(3), minimum_tab_depth_mm: z.number().min(4.498),
 }).strict() }).strict();
-export const renderResultSchema = z.union([v1Result, v2Result]).superRefine((result, context) => {
+const v3Result = z.object({ ...shared, design: designV3Schema, engine: z.literal("Foldable local unfold"), interpretation: z.literal("procedural_assembly"), stats: z.object({
+  panel_count: z.number().int().positive(), triangle_count: z.number().int().positive(), page_count: z.number().int().positive(), paper: z.literal("A4"), piece_count: z.number().int().min(1).max(8),
+}).strict() }).strict();
+export const renderResultSchema = z.union([v1Result, v2Result, v3Result]).superRefine((result, context) => {
   if (!requiredChecks(result.design).every(check => result.validation.checks.includes(check))) context.addIssue({ code: "custom", path: ["validation", "checks"], message: "All print and assembly checks must pass." });
   const id = result.model_url.split("/")[3];
   if (![result.pdf_url, result.preview_url].every(url => url.split("/")[3] === id)) context.addIssue({ code: "custom", path: ["pdf_url"], message: "Model, net, and PDF must belong to the same render." });
@@ -41,6 +59,18 @@ export const renderResultSchema = z.union([v1Result, v2Result]).superRefine((res
 });
 export type RenderResult = z.infer<typeof renderResultSchema>;
 export function sameDesign(a: DesignSpec, b: DesignSpec): boolean {
+  if (a.version === 3 || b.version === 3) {
+    if (a.version !== 3 || b.version !== 3 || a.name !== b.name || a.parts.length !== b.parts.length) return false;
+    return a.parts.every((part, index) => {
+      const other = b.parts[index];
+      return part.id === other.id && part.width_mm === other.width_mm && part.height_mm === other.height_mm && part.depth_mm === other.depth_mm &&
+        part.position.x === other.position.x && part.position.y === other.position.y && part.position.z === other.position.z && part.color === other.color &&
+        part.artwork.length === other.artwork.length && part.artwork.every((item, i) => {
+          const v = other.artwork[i];
+          return item.shape === v.shape && item.x === v.x && item.y === v.y && item.width === v.width && item.height === v.height && item.color === v.color;
+        });
+    });
+  }
   if (a.version !== b.version || a.name !== b.name || a.shape !== b.shape || a.face.eyes !== b.face.eyes || a.face.mouth !== b.face.mouth || a.face.whiskers !== b.face.whiskers || a.face.markings !== b.face.markings) return false;
   if (a.version === 1 && b.version === 1) return a.edge_mm === b.edge_mm;
   if (a.version === 2 && b.version === 2) return a.ears === b.ears && a.size_mm === b.size_mm && a.proportions.width === b.proportions.width && a.proportions.height === b.proportions.height && a.proportions.depth === b.proportions.depth;

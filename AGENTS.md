@@ -1,5 +1,12 @@
 # Foldable AI: implementation instructions
 
+## Current user direction (supersedes conflicting constraints below)
+
+- AI plans a character as multiple printable parts, including their arrangement and colour; deterministic code constructs the exact assembly and printable nets.
+- Produce duplex A4 pages with aligned outside artwork and inside labels, using long-edge flipping. Multiple pages and colour are explicitly allowed.
+- Show the assembled geometry produced by the exporter, and preserve honest limitations about supported forms and physical validation.
+- Keep the interface and printed text minimal. Work on a separate branch.
+
 ## Current approved scope (supersedes the older cube-only sections below)
 
 The user has explicitly revised the scope during implementation:

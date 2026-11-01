@@ -10,7 +10,7 @@ import itertools
 import numpy as np
 from scipy.spatial import ConvexHull
 
-from .models import DesignV1, DesignV2, PrintError
+from .models import DesignV1, DesignV2, BoxPart, PrintError
 
 
 @dataclass
@@ -74,7 +74,7 @@ def panels_from_points(points: np.ndarray) -> Solid:
 
 
 def make_solid(design: DesignV1 | DesignV2, scale: float = 1) -> Solid:
-    if design.shape == "box":
+    if isinstance(design, BoxPart) or design.shape == "box":
         points = np.array(list(itertools.product((-0.5, 0.5), repeat=3)))
     elif design.shape == "rounded":
         # A rotated icosahedron: twenty equilateral panels before proportions.
@@ -91,7 +91,9 @@ def make_solid(design: DesignV1 | DesignV2, scale: float = 1) -> Solid:
         raise PrintError("Unsupported shape.", ["shape"])
     points = points.astype(float)
     points /= np.ptp(points, axis=0).max()
-    if isinstance(design, DesignV2):
+    if isinstance(design, BoxPart):
+        points *= [design.width_mm, design.height_mm, design.depth_mm]
+    elif isinstance(design, DesignV2):
         if design.ears == "pointed":
             # Two silhouette peaks, part of the watertight convex hull.
             points = np.vstack((points, [[-0.38, 0.8, 0.06], [0.38, 0.8, 0.06]]))

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import example from "../examples/robot.design.json";
-import { designSchema, renderResultSchema, REQUIRED_CHECKS, sameDesign } from "../lib/contracts";
+import { designV1Schema, designSchema, renderResultSchema, REQUIRED_CHECKS, sameDesign } from "../lib/contracts";
 
-const design = designSchema.parse(example);
+const design = designV1Schema.parse(example);
 const validRender = () => ({
   design, mode: "supported", model_url: "/api/assets/test-1/model.glb",
   pdf_url: "/api/assets/test-1/net.pdf", preview_url: "/api/assets/test-1/net.svg",
@@ -81,4 +81,18 @@ test("version 2 requires every additional assembly check and matching proportion
 test("version 2 accepts both supported local unfolding engines", () => {
   assert.equal(renderResultSchema.safeParse({ ...validV2Render(), engine: "Foldable local unfold" }).success, true);
   assert.equal(renderResultSchema.safeParse({ ...validV2Render(), engine: "unvalidated-generator" }).success, false);
+});
+
+test("version 3 preserves individual part placements and colored artwork", () => {
+  const assembly = { version: 3 as const, name: "Robot", parts: [
+    { id: "body", width_mm: 35, height_mm: 35, depth_mm: 30, position: { x: 0, y: 0, z: 0 }, color: "#555577", artwork: [] },
+    { id: "head", width_mm: 30, height_mm: 25, depth_mm: 25, position: { x: 0, y: 30, z: 0 }, color: "#8899aa", artwork: [{ shape: "ellipse" as const, x: 0.3, y: 0.4, width: 0.1, height: 0.1, color: "#ffffff" }] },
+  ] };
+  assert.equal(designSchema.safeParse(assembly).success, true);
+  assert.equal(sameDesign(assembly, structuredClone(assembly)), true);
+  const changed = structuredClone(assembly); changed.parts[1].position.y += 1;
+  assert.equal(sameDesign(assembly, changed), false);
+  const result = { design: assembly, mode: "supported", model_url: "/api/assets/robot/model.glb", pdf_url: "/api/assets/robot/net.pdf", preview_url: "/api/assets/robot/net.svg", engine: "Foldable local unfold", interpretation: "procedural_assembly", validation: { status: "passed", checks: [...REQUIRED_CHECKS, "usable_tabs", "minimum_edge_size", "tab_receiver_fit", "assembly_complexity"] }, stats: { panel_count: 12, triangle_count: 24, page_count: 4, paper: "A4", piece_count: 2 } };
+  assert.equal(renderResultSchema.safeParse(result).success, true);
+  assert.equal(designSchema.safeParse({ ...assembly, parts: [] }).success, false);
 });

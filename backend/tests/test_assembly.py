@@ -1,0 +1,60 @@
+import numpy as np
+import pytest
+
+from foldable.assembly import _commands, _contacts, _front_art, _contact_outline
+from foldable.engine import solve, validate
+from foldable.models import DESIGN_ADAPTER, PrintError
+
+
+def assembly(y=-30):
+    common = {"width_mm": 35, "height_mm": 30, "depth_mm": 25,
+              "color": "#a38769", "artwork": [{"shape": "rect", "x": .5,
+              "y": .5, "width": .6, "height": .5, "color": "#eecbaa"}]}
+    return DESIGN_ADAPTER.validate_python({"version": 3, "name": "Bot", "parts": [
+        {**common, "id": "head", "position": {"x": 0, "y": 0, "z": 0}},
+        {**common, "id": "body", "position": {"x": 0, "y": y, "z": 0}}]})
+
+
+def test_assembly_contact_and_unbuildable_positions():
+    design = assembly()
+    contacts = _contacts(design.parts)
+    assert contacts[0][0][0] == 1 and contacts[1][0][0] == 0
+    with pytest.raises(PrintError, match="overlap"):
+        _contacts(assembly(-29).parts)
+    with pytest.raises(PrintError, match="touch"):
+        _contacts(assembly(-31).parts)
+
+
+def test_duplex_mirrors_geometry_and_preserves_artwork(tmp_path):
+    design = assembly()
+    part = design.parts[0]
+    net = solve(part, tmp_path)
+    validate(net)
+    front = _commands(part, net)
+    back = _commands(part, net, True, _contacts(design.parts)[0], design.parts)
+    front_lines = [x for x in front if x[0] == "poly" and not x[2]]
+    back_lines = [x for x in back if x[0] == "poly"]
+    for line in front_lines:
+        mirrored = line[1].copy(); mirrored[:, 0] = 210 - mirrored[:, 0]
+        assert any(other[1].shape == mirrored.shape and np.allclose(other[1], mirrored)
+                   for other in back_lines)
+    assert any(x[0] == "text" and "glue body" in x[3] for x in back)
+    assert _front_art(part, net, part.artwork[0]).shape == (4, 2)
+    assert _contact_outline(part, net, _contacts(design.parts)[0][0]).shape == (4, 2)
+
+
+def test_two_part_output_has_duplex_pages_and_assembled_geometry(tmp_path, monkeypatch):
+    import trimesh
+    from pypdf import PdfReader
+    from foldable import service
+    monkeypatch.setattr(service, "STORAGE", tmp_path)
+    result = service.render_design(assembly())
+    folder = tmp_path / result["model_url"].split("/")[3]
+    assert result["stats"]["piece_count"] == 2
+    assert result["stats"]["page_count"] == 4
+    assert len(PdfReader(folder / "net.pdf").pages) == 4
+    model = trimesh.load(folder / "model.glb", force="scene")
+    assert len(model.geometry) == 4  # two boxes plus their printed face marks
+    assert np.allclose(model.bounds[:, 1], [-.045, .015], atol=.0001)
+    assert '#a38769' in (folder / 'net.svg').read_text()
+    assert '#eecbaa' in (folder / 'net.svg').read_text()

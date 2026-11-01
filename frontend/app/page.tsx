@@ -158,8 +158,8 @@ export default function Home() {
   };
 
   const updateDesign = (next: DesignSpec) => { invalidate(); setDesign(next); setSource("manual"); };
-  const updateFace = (key: keyof DesignSpec["face"], value: string | boolean) => {
-    if (design) updateDesign({ ...design, face: { ...design.face, [key]: value } });
+  const updateFace = (key: keyof DesignV2["face"], value: string | boolean) => {
+    if (design && design.version !== 3) updateDesign({ ...design, face: { ...design.face, [key]: value } });
   };
   const receiveImage = useCallback((dataUrl: string | null) => { invalidate(); setImage(dataUrl); }, [invalidate]);
   const modelReady = useCallback(() => {
@@ -235,16 +235,16 @@ export default function Home() {
                     {(["width", "height", "depth"] as const).map(axis => <NumberField key={axis} label={axis[0].toUpperCase() + axis.slice(1)} value={design.proportions[axis]} min={0.75} max={1.3} step={0.05} onChange={value => updateDesign({ ...design, proportions: { ...design.proportions, [axis]: value } })} />)}
                   </div>
                 </>}
-                <div className="feature-grid">
+                {design.version !== 3 && <div className="feature-grid">
                   <FeatureSelect label="Eyes" value={design.face.eyes} options={[["round", "Round"], ["sleepy", "Sleepy"], ["happy", "Happy"]]} onChange={value => updateFace("eyes", value)} />
                   <FeatureSelect label="Mouth" value={design.face.mouth} options={[["smile", "Smile"], ["neutral", "Neutral"], ["open", "Open"]]} onChange={value => updateFace("mouth", value)} />
                   <FeatureSelect label="Markings" value={design.face.markings} options={[["none", "None"], ["freckles", "Freckles"], ["forehead_patch", "Forehead patch"]]} onChange={value => updateFace("markings", value)} />
                   <label className="checkbox-label"><input id="whiskers" type="checkbox" checked={design.face.whiskers} onChange={event => updateFace("whiskers", event.target.checked)} />Whiskers</label>
-                </div>
+                </div>}
                 <button type="button" className="secondary-button" onClick={() => void buildPreview()} disabled={!!busy}><RotateCcw size={14} />Update preview</button>
               </div>
             </details>}
-            <p className="interpretation-note">A stylised low-poly interpretation, unfolded onto one A4 sheet.</p>
+            <p className="interpretation-note">Made for paper, with separate pieces where needed.</p>
           </aside>
 
           {hasPreview && <section className="preview-panel" aria-label="Companion preview">
@@ -252,7 +252,7 @@ export default function Home() {
               <div className="preview-name"><h2>{design?.name.trim() || "Creating your paper pet"}</h2><span>{sourceLabel}</span></div>
               <div className="preview-tabs" role="tablist" aria-label="Preview type">
                 <button id="model-tab" type="button" role="tab" aria-selected={tab === "model"} aria-controls="model-panel" className={tab === "model" ? "active" : ""} onClick={() => setTab("model")}>3D</button>
-                <button id="net-tab" type="button" role="tab" aria-selected={tab === "net"} aria-controls="net-panel" className={tab === "net" ? "active" : ""} onClick={() => setTab("net")}>Paper net</button>
+                <button id="net-tab" type="button" role="tab" aria-selected={tab === "net"} aria-controls="net-panel" className={tab === "net" ? "active" : ""} onClick={() => setTab("net")}>Paper nets</button>
               </div>
             </div>
             <div className="preview-stage" aria-busy={!!busy}>
@@ -260,8 +260,8 @@ export default function Home() {
                 <div className="model-pane" id="model-panel" role="tabpanel" aria-labelledby="model-tab" hidden={tab !== "model"}>
                   <ModelViewer key={`${rendered.epoch}:${result.model_url}`} modelUrl={result.model_url} onReady={modelReady} onError={modelError} />
                 </div>
-                <div className="net-pane" id="net-panel" role="tabpanel" aria-labelledby="net-tab" hidden={tab !== "net"}>
-                  <img key={`${rendered.epoch}:${result.preview_url}`} src={result.preview_url} alt={`A4 paper net for ${result.design.name}`} onLoad={() => { if (requestEpoch.current === rendered.epoch) { setNetLoaded(true); setNetFailure(null); } }} onError={() => { if (requestEpoch.current === rendered.epoch) { setNetLoaded(false); setNetFailure("The paper net could not load. Retry the preview."); } }} />
+                <div className={result.design.version === 3 ? "net-pane multi-net" : "net-pane"} id="net-panel" role="tabpanel" aria-labelledby="net-tab" hidden={tab !== "net"}>
+                  <img key={`${rendered.epoch}:${result.preview_url}`} src={result.preview_url} alt={`A4 paper nets for ${result.design.name}`} onLoad={() => { if (requestEpoch.current === rendered.epoch) { setNetLoaded(true); setNetFailure(null); } }} onError={() => { if (requestEpoch.current === rendered.epoch) { setNetLoaded(false); setNetFailure("The paper net could not load. Retry the preview."); } }} />
                 </div>
               </> : <div className="preview-progress">{busy ? <LoaderCircle className="spin" size={25} strokeWidth={1.5} /> : <Box size={36} strokeWidth={1} />}<p role={busy ? "status" : undefined}>{busy ? progressLabel : "Update the preview to see your changes."}</p></div>}
             </div>
@@ -272,7 +272,7 @@ export default function Home() {
                 <details className="validation-details"><summary><span className={validationPassed ? "status-dot passed" : "status-dot"} />{validationPassed ? "Print checks passed" : "Print checks pending"}<ChevronDown size={13} /></summary><div><ul>{printChecks.map(check => <li key={check}>{validationPassed ? <Check size={12} /> : <span className="check-placeholder" />}{checkLabels[check]}</li>)}</ul><p>Software validation only. Physical assembly has not been checked.</p></div></details>
                 {canDownload && result ? <a className="download-button" href={result.pdf_url} download={`${result.design.name}.pdf`}><ArrowDownToLine size={16} />Download PDF</a> : <button className="download-button" type="button" disabled><ArrowDownToLine size={16} />Download PDF</button>}
               </div>
-              <p className="print-note">{"size_mm" in (result?.stats || {}) ? `${(result!.stats as { size_mm: number }).size_mm} mm · ` : ""}A4 · Single-sided · Print at 100% / actual size.</p>
+              <p className="print-note">{result?.design.version === 3 ? "A4 · Double-sided · Flip on long edge · Print at 100% / actual size." : `${"size_mm" in (result?.stats || {}) ? `${(result!.stats as { size_mm: number }).size_mm} mm · ` : ""}A4 · Print at 100% / actual size.`}</p>
             </div>
           </section>}
         </div>

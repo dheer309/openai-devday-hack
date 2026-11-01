@@ -66,6 +66,8 @@ details[open] > summary > svg:last-child { transform: rotate(180deg); }
 .model-pane > div { width: 100%; }
 .net-pane { padding: 22px; align-items: center; justify-content: center; }
 .net-pane img { display: block; width: 100%; max-height: 425px; object-fit: contain; }
+.net-pane.multi-net { max-height: 650px; overflow: auto; align-items: flex-start; }
+.net-pane.multi-net img { width: min(100%, 480px); max-height: none; height: auto; }
 .print-panel { padding: 18px 25px 20px; }
 .error-notice { display: flex; align-items: flex-start; gap: 9px; padding-bottom: 16px; color: #98784c; font-size: 12px; line-height: 1.6; }
 .error-notice > svg { margin-top: 2px; }
