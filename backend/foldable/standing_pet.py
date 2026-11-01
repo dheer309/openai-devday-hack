@@ -4,6 +4,7 @@ Offline demo export; deliberately separate from the frozen DesignSpec API.
 Run: python -m foldable.standing_pet --output path/to/folder
 """
 import argparse
+import copy
 from dataclasses import dataclass
 import itertools
 import json
@@ -14,6 +15,8 @@ import sys
 
 import numpy as np
 from PIL import Image, ImageDraw
+from reportlab.pdfgen.canvas import Canvas
+from reportlab.lib.units import mm
 from shapely.geometry import Polygon
 import trimesh
 
@@ -119,7 +122,7 @@ def on_face(part, normal, points):
     return local@p.rotation.T+p.offset
 
 
-def draw_part(d, part):
+def draw_part(d, part, inside=False):
     net = part.net
     for edge in sorted(net.hinges):
         d.line(net.edge_points(net.solid.edges[edge][0], edge), .16, True)
@@ -137,10 +140,13 @@ def draw_part(d, part):
             angle = edge_angle(pts)
             radians = np.radians(angle)
             center += np.array([np.sin(radians), -np.cos(radians)])*.6
-            d.text(*center, f'{part.prefix}{s.number}', size=6, angle=angle, anchor='middle')
-    for xy in part.paths:
-        world = np.column_stack((xy, np.full(len(xy), part.dims[2]/2)))
-        d.line(on_face(part, (0, 0, 1), world), .32)
+            if inside:
+                d.text(*center, f'{part.prefix}{s.number}', size=6, angle=angle, anchor='middle')
+    if not inside:
+        for xy in part.paths:
+            world = np.column_stack((xy, np.full(len(xy), part.dims[2]/2)))
+            d.line(on_face(part, (0, 0, 1), world), .32)
+        return
     # The two large exterior surfaces are the attachment joint, no extra tabs.
     normal = (0, -1, 0) if part.name == 'head' else (0, 1, 0)
     y = -part.dims[1]/2 if part.name == 'head' else part.dims[1]/2
@@ -191,6 +197,53 @@ def preview(d, parts, offset=(173, 74), scale=.82):
             d.line(view_points(world)*scale+offset, .23)
 
 
+def mirror_for_long_edge(drawing):
+    """Back page of portrait duplex: horizontal reflection, readable text."""
+    mirrored = Drawing()
+    for item in drawing.items:
+        item = copy.deepcopy(item)
+        if item['kind'] in ('line', 'polygon'):
+            item['points'][:, 0] = 210 - item['points'][:, 0]
+        else:
+            item['x'] = 210 - item['x']
+            item['angle'] = -item['angle']
+            # All in-net text is centred, so labels remain centred after reflection.
+            if item['anchor'] != 'middle':
+                raise ValueError('Back-side labels must be centre anchored.')
+        mirrored.items.append(item)
+    return mirrored
+
+
+def write_duplex(front, back, path):
+    canvas = Canvas(str(path), pagesize=(210*mm, 297*mm), pageCompression=1)
+    canvas.setTitle('Standing BSOD robot - duplex A4 long edge')
+    for drawing in (front, back):
+        for item in drawing.items:
+            canvas.saveState()
+            if item['kind'] in ('line', 'polygon'):
+                canvas.setLineWidth(item['width']*mm)
+                canvas.setLineJoin(1)
+                if item.get('dashed'):
+                    canvas.setDash(1.5*mm, .9*mm)
+                p = canvas.beginPath()
+                for i, (x, y) in enumerate(item['points']):
+                    (p.moveTo if i == 0 else p.lineTo)(float(x)*mm, float(y)*mm)
+                if item['kind'] == 'polygon':
+                    p.close()
+                    canvas.setFillColorRGB(1, 1, 1)
+                    canvas.drawPath(p, fill=1, stroke=1)
+                else:
+                    canvas.drawPath(p)
+            else:
+                canvas.setFont('Helvetica-Bold' if item['bold'] else 'Helvetica', item['size'])
+                canvas.translate(item['x']*mm, item['y']*mm)
+                canvas.rotate(item['angle'])
+                (canvas.drawCentredString if item['anchor'] == 'middle' else canvas.drawString)(0, 0, item['text'])
+            canvas.restoreState()
+        canvas.showPage()
+    canvas.save()
+
+
 def build(output):
     output.mkdir(parents=True, exist_ok=True)
     head = make_part('head', 'H', (36, 30, 26), (0, 39, 0), output)
@@ -204,63 +257,69 @@ def build(output):
         for q in polygons[i+1:]:
             assert p.buffer(-.002).intersection(q.buffer(-.002)).area < 1e-5
     d = Drawing()
-    d.text(10, 283, 'BSOD / PAPER DESKTOP COMPANION', 15, bold=True)
-    d.text(10, 276, 'Inspired by the built-in pet. Blocky standing version. Black outlines only.', 8)
-    d.line([(10, 269), (21, 269)])
-    d.text(24, 268, 'CUT OUTER OUTLINE', 6.5)
-    d.line([(69, 269), (80, 269)], dashed=True)
-    d.text(83, 268, 'FOLD', 6.5)
-    d.text(112, 268, 'Match H to H; B to B. Tabs inside.', 7)
+    inside = Drawing()
+    d.text(10, 283, 'BSOD / STANDING PAPER COMPANION', 15, bold=True)
+    d.text(10, 276, 'OUTSIDE / artwork side. Cut solid outlines; score dashed folds.', 8)
+    d.text(10, 269, 'Head and body labels are printed on the INSIDE of the sheet.', 7)
     d.text(10, 258, 'HEAD / 36 x 30 x 26 mm', 8, bold=True)
     d.text(120, 231, 'BODY / 22 x 24 x 20 mm', 8, bold=True)
     for part in parts:
         draw_part(d, part)
-    d.text(10, 131, 'OPTIONAL FLAT PARTS / cut these after the two boxes', 8, bold=True)
-    # Wide, flat plinth gives a visible standing footprint without another box.
-    base = rect(12, 88, 38, 28)
-    d.line(base, .24)
-    d.text(31, 119, 'BASE', 7, anchor='middle', bold=True)
-    d.text(31, 102, 'GLUE BODY', 6, anchor='middle')
-    d.text(31, 98, 'BOTTOM HERE', 6, anchor='middle')
-    for x in (15, 34):
-        d.line(rect(x, 90, 10, 4), .2)
-    # Arms are flat silhouettes glued to the body sides, no tiny box folds.
+        draw_part(inside, part, inside=True)
+    d.text(10, 131, 'OPTIONAL FLAT ARMS AND ANTENNA', 8, bold=True)
     for x, name in [(61, 'L'), (76, 'R')]:
         pts = loop([(x, 113), (x+7, 113), (x+7, 101), (x+5, 99), (x+2, 99), (x, 102)])
         d.line(pts, .24)
-        d.text(x+3.5, 115, name+' ARM', 6, anchor='middle')
-        d.text(x+3.5, 110, 'glue', 5, anchor='middle')
+        inside.line(pts, .24)
+        inside.text(x+3.5, 110, 'glue', 5, anchor='middle')
     antenna = loop([(96, 88), (104, 88), (104, 92), (101.5, 92),
                     (101.5, 101), (104, 104), (100, 108), (96, 104), (98.5, 101), (98.5, 92), (96, 92)])
-    d.line(antenna, .24)
-    d.line([(96, 92), (104, 92)], .16, True)
-    d.text(100, 112, 'ANTENNA', 6, anchor='middle')
-    d.text(100, 89, 'glue', 5, anchor='middle')
-    d.text(12, 77, 'Base: glue body upright in the centre.', 6.5)
-    d.text(12, 72, 'Arms: glue top 4 mm to body sides, just below head.', 6.5)
-    d.text(12, 67, 'Antenna: fold foot 90 degrees; glue on head top.', 6.5)
+    for side in (d, inside):
+        side.line(antenna, .24)
+        side.line([(96, 92), (104, 92)], .16, True)
+    inside.text(100, 89, 'glue', 5, anchor='middle')
+    d.text(10, 77, 'Arms: glue upper ends to body sides, below head.', 6.5)
+    d.text(10, 72, 'Antenna: fold foot 90 degrees; glue on head top.', 6.5)
     preview(d, parts)
     d.text(173, 62, 'ASSEMBLED BOXES', 6.5, anchor='middle')
     d.text(173, 58, '54 mm tall before antenna', 6.5, anchor='middle')
     d.line([(10, 51), (200, 51)], .15)
-    for y, text in [(45, '1  Cut outer outlines; keep all numbered tabs. Face and chest lines are artwork.'),
-                    (39, '2  Score and pre-fold dashed lines away from the printed side. Dry-fit both boxes.'),
-                    (33, '3  Glue matching tabs inside each box. Leave one face open for access, then close it.'),
-                    (27, '4  Glue body TOP to the marked head BOTTOM, centred. Add optional flat parts.')]:
-        d.text(10, y, text, 7)
-    d.text(10, 18, 'A4 / SINGLE SIDED / ACTUAL SIZE 100% / NO FIT TO PAGE', 7, bold=True)
-    d.text(10, 12, 'Geometry and layout checked; physical assembly not yet tested. Use thin glue.', 6.5)
+    d.text(10, 44, 'PRINT ON A4 / DOUBLE-SIDED / FLIP LONG EDGE / 100% ACTUAL SIZE', 7, bold=True)
+    d.text(10, 38, 'Compare registration crosses on both sides against a light before cutting.', 7)
+    d.text(10, 32, 'Cut outlines and score folds from this side. Assemble using inside labels.', 7)
+    d.text(10, 26, 'Printed side faces OUT. Tabs fold inside. The face and chest are artwork.', 7)
+    d.text(10, 12, 'Digital checks passed; this design has not been physically assembled.', 6.5)
     d.line([(177, 17), (197, 17)], .3)
     d.line([(177, 15.5), (177, 18.5)], .3)
     d.line([(197, 15.5), (197, 18.5)], .3)
     d.text(187, 12, '20 mm check', 6.5, anchor='middle')
-    d.pdf(output/'standing-bsod-a4.pdf', 'Standing BSOD paper companion')
-    d.svg(output/'standing-bsod-a4.svg')
+    # Crosses are drawn in identical material coordinates on each side.
+    for x, y in [(12, 264), (198, 264), (12, 137), (198, 137), (12, 84), (198, 84), (105, 135)]:
+        for side in (d, inside):
+            side.line([(x-1, y), (x+1, y)], .14)
+            side.line([(x, y-1), (x, y+1)], .14)
+    back = mirror_for_long_edge(inside)
+    back.text(10, 283, 'INSIDE / BACK OF THE SHEET', 15, bold=True)
+    back.text(10, 276, 'Flip on LONG EDGE. This side faces inward when assembled.', 8)
+    back.text(10, 269, 'Match H to H for the head; B to B for the body. Glue tabs inside.', 7)
+    back.text(10, 131, 'INSIDE LABELS / arms and antenna are optional', 8, bold=True)
+    back.text(10, 77, 'Glue arm tops to body sides. Fold the antenna foot and glue on head top.', 6.5)
+    back.line([(10, 51), (200, 51)], .15)
+    for y, text in [(45, '1  Score the dashed folds and fold them away from the outside artwork.'),
+                    (39, '2  Glue H4-H7. Keep the face open; then close joins H1-H3.'),
+                    (33, '3  Glue B4-B7. Keep the front open; then close joins B1-B3.'),
+                    (27, '4  Glue body top to head bottom, aligning the corner guides and front faces.')]:
+        back.text(10, y, text, 7)
+    back.text(10, 18, 'A4 / DUPLEX / FLIP LONG EDGE / ACTUAL SIZE 100%', 7, bold=True)
+    back.text(10, 12, 'Hold against light: crosses must overlap. Check the 20 mm line on front.', 6.5)
+    write_duplex(d, back, output/'standing-bsod-duplex-a4.pdf')
+    d.svg(output/'standing-bsod-front.svg')
+    back.svg(output/'standing-bsod-back.svg')
     scene = trimesh.Scene()
     for part in parts:
         scene.add_geometry(texture_mesh(part), node_name=part.name, geom_name=part.name)
     (output/'standing-bsod.glb').write_bytes(scene.export(file_type='glb'))
-    record = {'physically_tested': False, 'paper': 'A4', 'page_count': 1,
+    record = {'physically_tested': False, 'paper': 'A4', 'page_count': 2, 'sheets': 1, 'duplex_flip': 'long-edge',
               'height_mm': 54, 'engine': 'Blender Export Paper Model 1.4.2',
               'boxes': {p.name: {'dimensions_mm': p.dims, 'checks': validate(p.net),
                         'tab_count': len(p.net.seams),
