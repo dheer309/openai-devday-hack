@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownToLine, Box, Check, ChevronDown, CircleAlert,
   LoaderCircle, RotateCcw,
@@ -167,6 +167,7 @@ export default function Home() {
     if (rendered && requestEpoch.current === rendered.epoch) { setModelLoaded(false); setModelFailure(message); }
   }, [rendered]);
   const result = rendered?.data;
+  const assembly = useMemo(() => result?.design.version === 3 && "scale_applied" in result.stats ? { design: result.design, scale: result.stats.scale_applied } : undefined, [result]);
   const validationPassed = !!rendered && rendered.epoch === requestEpoch.current && !!result && result.validation.status === "passed" && requiredChecks(result.design).every(check => result.validation.checks.includes(check));
   const canDownload = validationPassed && modelLoaded && !busy && !failure && !modelFailure;
   const canInterpret = !busy && aiConfigured !== false && (inputType === "text" ? text.trim().length > 0 : !!image);
@@ -249,7 +250,7 @@ export default function Home() {
             <div className="preview-stage" aria-busy={!!busy}>
               {rendered && result ? <>
                 <div className="model-pane">
-                  <ModelViewer key={`${rendered.epoch}:${result.model_url}`} modelUrl={result.model_url} onReady={modelReady} onError={modelError} />
+                  <ModelViewer key={`${rendered.epoch}:${result.model_url}`} modelUrl={result.model_url} assembly={assembly} onReady={modelReady} onError={modelError} />
                 </div>
               </> : <div className="preview-progress">{busy ? <LoaderCircle className="spin" size={25} strokeWidth={1.5} /> : <Box size={36} strokeWidth={1} />}<p role={busy ? "status" : undefined}>{busy ? progressLabel : "Update the preview to see your changes."}</p></div>}
             </div>

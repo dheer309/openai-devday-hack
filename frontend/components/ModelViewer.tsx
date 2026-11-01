@@ -6,16 +6,18 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RotateCcw } from "lucide-react";
 import styles from "./StudioComponents.module.css";
+import { assemblyBounds } from "@/lib/assembly-bounds";
+import type { DesignV3 } from "@/lib/contracts";
 
-type Props = { modelUrl: string; onReady?: () => void; onError?: (message: string) => void };
+type Props = { modelUrl: string; assembly?: { design: DesignV3; scale: number }; onReady?: () => void; onError?: (message: string) => void };
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
   const textures = new Set<THREE.Texture>();
   root.traverse((object) => {
-    if (object instanceof THREE.Mesh) {
-      geometries.add(object.geometry);
+    if (object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Sprite) {
+      if (!(object instanceof THREE.Sprite)) geometries.add(object.geometry);
       for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
         materials.add(material);
         for (const value of Object.values(material)) if (value instanceof THREE.Texture) textures.add(value);
@@ -27,7 +29,7 @@ function disposeObject(root: THREE.Object3D) {
   geometries.forEach((geometry) => geometry.dispose());
 }
 
-export default function ModelViewer({ modelUrl, onReady, onError }: Props) {
+export default function ModelViewer({ modelUrl, assembly, onReady, onError }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const callbacks = useRef({ onReady, onError });
   const resetRef = useRef<(() => void) | null>(null);
@@ -42,6 +44,7 @@ export default function ModelViewer({ modelUrl, onReady, onError }: Props) {
     let active = true;
     let frame = 0;
     let loaded: THREE.Object3D | null = null;
+    let guides: THREE.Group | null = null;
     let renderer: THREE.WebGLRenderer | undefined;
     let controls: OrbitControls | undefined;
     let resizeObserver: ResizeObserver | undefined;
@@ -148,12 +151,51 @@ export default function ModelViewer({ modelUrl, onReady, onError }: Props) {
               }
             }
           });
-          const bounds = new THREE.Box3().setFromObject(loaded);
+          const physical = assembly ? assemblyBounds(assembly.design, assembly.scale) : null;
+          const bounds = physical
+            ? new THREE.Box3(new THREE.Vector3(...physical.min as [number, number, number]), new THREE.Vector3(...physical.max as [number, number, number]))
+            : new THREE.Box3().setFromObject(loaded);
           const center = bounds.getCenter(new THREE.Vector3());
           const size = bounds.getSize(new THREE.Vector3());
           const diameter = size.length();
           if (bounds.isEmpty() || !Number.isFinite(diameter) || diameter <= 0) throw new Error("empty model");
           scene.add(loaded);
+          // Guide lines use the printed geometry's actual outer bounds, not the
+          // slightly raised decorative artwork in the GLB.
+          const offset = diameter * 0.08;
+          const origin = bounds.min.clone().subScalar(offset);
+          guides = new THREE.Group();
+          const axes = [
+            { label: "W", length: size.x, direction: new THREE.Vector3(1, 0, 0) },
+            { label: "H", length: size.y, direction: new THREE.Vector3(0, 1, 0) },
+            { label: "D", length: size.z, direction: new THREE.Vector3(0, 0, 1) },
+          ];
+          for (const axis of axes) {
+            const end = origin.clone().addScaledVector(axis.direction, axis.length);
+            const geometry = new THREE.BufferGeometry().setFromPoints([origin, end]);
+            const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0x59665b, depthTest: false }));
+            line.renderOrder = 10;
+            guides.add(line);
+            const canvas = document.createElement("canvas");
+            canvas.width = 512; canvas.height = 104;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.fillStyle = "rgba(250, 250, 247, 0.94)";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.fillStyle = "#33463a";
+              ctx.font = "600 46px sans-serif";
+              ctx.textAlign = "center"; ctx.textBaseline = "middle";
+              ctx.fillText(`${axis.label} ${Math.round(axis.length * 10000) / 10} mm`, 256, 52);
+              const texture = new THREE.CanvasTexture(canvas);
+              texture.colorSpace = THREE.SRGBColorSpace;
+              const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+              label.position.copy(origin).addScaledVector(axis.direction, axis.length * 0.55);
+              label.scale.set(diameter * 0.55, diameter * 0.112, 1);
+              label.renderOrder = 11;
+              guides.add(label);
+            }
+          }
+          scene.add(guides);
           const fit = () => {
             if (!controls) return;
             const verticalFov = THREE.MathUtils.degToRad(camera.fov);
@@ -162,7 +204,7 @@ export default function ModelViewer({ modelUrl, onReady, onError }: Props) {
             // remains stable while the small physical model rotates.
             camera.near = diameter / 20;
             camera.far = fitDistance * 8;
-            camera.position.copy(center).add(new THREE.Vector3(0.65, 0.38, 1.5).normalize().multiplyScalar(fitDistance * 1.15));
+            camera.position.copy(center).add(new THREE.Vector3(0.65, 0.38, 1.5).normalize().multiplyScalar(fitDistance * 1.35));
             camera.updateProjectionMatrix();
             controls.target.copy(center);
             controls.minDistance = diameter * 0.65;
@@ -205,13 +247,14 @@ export default function ModelViewer({ modelUrl, onReady, onError }: Props) {
       removeContextListener?.();
       controls?.dispose();
       if (loaded) disposeObject(loaded);
+      if (guides) disposeObject(guides);
       if (renderer) {
         renderer.dispose();
         renderer.domElement.remove();
       }
       resetRef.current = null;
     };
-  }, [modelUrl, attempt]);
+  }, [modelUrl, attempt, assembly]);
 
   return <div className={styles.viewer}>
     <div className={styles.canvasHost} ref={hostRef} />
