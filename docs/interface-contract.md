@@ -47,7 +47,7 @@ The version-2 success response preserves `design`, `mode`, asset URLs, and `vali
 
 Numbers above illustrate the shape of the response; use the actual returned measurements. Unlike v1, panel/triangle counts vary. Additional checks include tab usability, receiver fit, minimum edge length, and assembly complexity.
 
-The service keeps synchronous `/render`, caches complete validated results, and returns 503 `RENDER_BUSY` if another render is in progress. There is no remote 3D-generation queue. Keep the frontend timeout at least 45 seconds; do not synthesize progress percentages.
+The service keeps synchronous `/render`, caches complete validated results, and returns 503 `RENDER_BUSY` if another render is in progress. There is no remote 3D-generation queue. Allow 120 seconds for the frontend request: typical fixture exports take around 4-5 seconds locally, but a difficult design can require three 35-second attempts. Do not synthesize progress percentages.
 
 `GET /health` continues to report `contract_version: 1` for compatibility and adds `supported_versions: [1,2]`, engine name, and `engine_ready`. Backend `/api/assets/...` aliases also work directly during development; the frontend proxy contract is unchanged.
 

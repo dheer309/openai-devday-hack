@@ -40,9 +40,9 @@ class DesignV1(NamedDesign):
 
 
 class Proportions(StrictModel):
-    width: float = Field(default=1, ge=0.75, le=1.3)
-    height: float = Field(default=1, ge=0.75, le=1.3)
-    depth: float = Field(default=1, ge=0.75, le=1.3)
+    width: float = Field(default=1.0, ge=0.75, le=1.3)
+    height: float = Field(default=1.0, ge=0.75, le=1.3)
+    depth: float = Field(default=1.0, ge=0.75, le=1.3)
 
 
 class DesignV2(NamedDesign):
@@ -50,7 +50,7 @@ class DesignV2(NamedDesign):
     shape: Literal["box", "rounded", "diamond", "crystal"] = "rounded"
     proportions: Proportions = Field(default_factory=Proportions)
     ears: Literal["none", "pointed"] = "none"
-    size_mm: float = Field(default=50, ge=40, le=65)
+    size_mm: float = Field(default=50.0, ge=40, le=65)
 
 
 Design = Annotated[Union[DesignV1, DesignV2], Field(discriminator="version")]

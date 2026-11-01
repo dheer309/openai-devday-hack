@@ -1,0 +1,2 @@
+# Tested with CPython 3.13 on Windows x64. Alternatively set BLENDER_BIN.
+bpy==5.2.3
