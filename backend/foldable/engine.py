@@ -154,7 +154,7 @@ def validate(net):
     return REQUIRED_CHECKS + ["usable_tabs", "minimum_edge_size", "tab_receiver_fit", "assembly_complexity"]
 
 
-def solve(design, workdir: Path):
+def solve_blender(design, workdir: Path):
     worker = Path(__file__).with_name("blender_worker.py")
     workdir.mkdir(parents=True, exist_ok=True)
     last = None
@@ -189,3 +189,14 @@ def solve(design, workdir: Path):
             except PrintError as exc:
                 last = exc
     raise last or PrintError("No printable layout was found.", ["unfold"])
+
+
+def engine_name():
+    return "Blender Export Paper Model 1.4.2" if os.environ.get("FOLDABLE_ENGINE") == "blender" else "Foldable local unfold"
+
+
+def solve(design, workdir: Path):
+    if os.environ.get("FOLDABLE_ENGINE") == "blender":
+        return solve_blender(design, workdir)
+    from .local_engine import solve_local
+    return solve_local(design, workdir, Net, Placed, Seam, PAGE_AREA, validate)

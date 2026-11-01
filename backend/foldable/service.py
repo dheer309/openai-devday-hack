@@ -9,7 +9,7 @@ import uuid
 
 import numpy as np
 
-from .engine import solve, validate
+from .engine import solve, validate, engine_name
 from .export import export_all
 from .models import DesignV1, PrintError
 
@@ -21,7 +21,7 @@ CODE_HASH = hashlib.sha256(b''.join(p.read_bytes() for p in sorted(Path(__file__
 
 def render_design(design):
     encoded = json.dumps(design.model_dump(), sort_keys=True, separators=(',', ':'))
-    asset_id = hashlib.sha256((CODE_HASH + encoded).encode()).hexdigest()[:24]
+    asset_id = hashlib.sha256((CODE_HASH + engine_name() + encoded).encode()).hexdigest()[:24]
     folder = STORAGE / asset_id
     manifest = folder / "result.json"
     if manifest.is_file() and all((folder / name).is_file() for name in ("model.glb", "net.pdf", "net.svg")):
@@ -54,7 +54,7 @@ def render_design(design):
                   "validation": {"status": "passed", "checks": checks}, "stats": stats}
         # Retain exact v1 envelope for the existing strict frontend validator.
         if not isinstance(design, DesignV1):
-            result["engine"] = "Blender Export Paper Model 1.4.2"
+            result["engine"] = engine_name()
             result["interpretation"] = "procedural_low_poly"
         (staging / "result.json").write_text(json.dumps(result, indent=2))
         (staging / "design.json").write_text(json.dumps(design.model_dump(), indent=2))

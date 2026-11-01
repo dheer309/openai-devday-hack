@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from .models import Design, DesignV2, PrintError
 from .service import render_design, STORAGE, ROOT
+from .engine import engine_name
 
 app = FastAPI(title="Foldable AI geometry and print service", version="2.0.0")
 
@@ -50,7 +51,9 @@ async def request_limit(request: Request, call_next):
 def health():
     executable = os.environ.get("BLENDER_BIN")
     python = os.environ.get("BLENDER_PYTHON")
-    if executable:
+    if os.environ.get("FOLDABLE_ENGINE") != "blender":
+        ready = True
+    elif executable:
         ready = bool(shutil.which(executable))
     elif python:
         try:
@@ -65,7 +68,7 @@ def health():
     else:
         ready = importlib.util.find_spec("bpy") is not None
     return {"status": "ok", "contract_version": 1, "supported_versions": [1, 2],
-            "engine": "Export Paper Model 1.4.2", "engine_ready": ready}
+            "engine": engine_name(), "engine_ready": ready}
 
 
 @app.get("/design-schema")

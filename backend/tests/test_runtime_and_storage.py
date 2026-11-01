@@ -9,6 +9,7 @@ from foldable.models import DESIGN_ADAPTER, PrintError
 
 
 def test_health_checks_the_configured_blender_python(monkeypatch):
+    monkeypatch.setenv("FOLDABLE_ENGINE", "blender")
     monkeypatch.delenv("BLENDER_BIN", raising=False)
     monkeypatch.setenv("BLENDER_PYTHON", "/configured/python")
     calls = []
@@ -25,6 +26,7 @@ def test_health_checks_the_configured_blender_python(monkeypatch):
 
 
 def test_health_reports_missing_configured_runtime(monkeypatch):
+    monkeypatch.setenv("FOLDABLE_ENGINE", "blender")
     monkeypatch.delenv("BLENDER_BIN", raising=False)
     monkeypatch.setenv("BLENDER_PYTHON", "/missing/python")
 

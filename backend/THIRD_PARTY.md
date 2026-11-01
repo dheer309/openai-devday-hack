@@ -1,6 +1,6 @@
 # Third-party engine
 
-The backend reuses **Export Paper Model** by Adam Dominec and contributors:
+The optional Blender engine reuses **Export Paper Model** by Adam Dominec and contributors:
 
 - Repository: https://github.com/addam/Export-Paper-Model-from-Blender
 - Pinned revision: `d688dcd147b27c43fe15e086f2872d0a24b218bf`
@@ -9,6 +9,6 @@ The backend reuses **Export Paper Model** by Adam Dominec and contributors:
 - Original files are under `foldable/vendor/export_paper_model/`, unmodified.
 - Full GPL text is provided in `LICENSE`. The combined backend is distributed under GPL-3.0-or-later; the separate frontend is not assigned a license by this document.
 
-The established engine determines the unfolding, tabs, and packing. Our adapter supplies procedural shapes, reads the exact resulting panel geometry, validates assembly constraints, projects monochrome artwork, and writes the final presentation. These checks do not certify that a physical model has been assembled.
+When explicitly selected, the established Blender engine determines unfolding, tabs and packing. The default local engine uses its own rigid panel search and collision-checked glue tabs. Both feed the independent validation and shared monochrome GLB/PDF/SVG exporter. Software checks do not certify physical assembly.
 
-Neither the discarded custom unfolding prototype nor Papercraft Pro is used in the final backend.
+Papercraft Pro is not used. The lightweight local unfolding path was authorized during final integration to avoid a large Blender dependency in the default application.

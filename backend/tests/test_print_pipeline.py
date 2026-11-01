@@ -41,9 +41,8 @@ def rendered():
         folder = root / result['pdf_url'].split('/')[-2]
         design = DESIGN_ADAPTER.validate_python(payload)
         solid = make_solid(design, result['stats'].get('scale_applied', 1))
-        raw = json.loads((folder / 'engine-output.json').read_text())
-        candidates = [adapt(c, solid, result['stats'].get('scale_applied', 1)) for c in raw['candidates']]
-        net = next(n for n in candidates if _passes(n))
+        from foldable.engine import solve
+        net = solve(design, folder / 'verification')
         results[name] = (design, result, folder, net)
     yield client, results
     service.STORAGE = old_storage
