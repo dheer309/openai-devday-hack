@@ -19,6 +19,9 @@ class Drawing:
     def line(self, points, width=0.22, dashed=False):
         self.items.append({"kind": "line", "points": np.asarray(points), "width": width, "dashed": dashed})
 
+    def polygon(self, points, width=0.22):
+        self.items.append({"kind": "polygon", "points": np.asarray(points), "width": width})
+
     def text(self, x, y, text, size=7, angle=0, anchor="start", bold=False):
         self.items.append({"kind": "text", "x": x, "y": y, "text": text, "size": size,
                            "angle": angle, "anchor": anchor, "bold": bold})
@@ -29,15 +32,20 @@ class Drawing:
         c.setAuthor("Foldable AI")
         for item in self.items:
             c.saveState()
-            if item["kind"] == "line":
+            if item["kind"] in ("line", "polygon"):
                 c.setLineWidth(item["width"]*mm)
                 c.setLineJoin(1)
-                if item["dashed"]:
+                if item.get("dashed"):
                     c.setDash(1.5*mm, 0.9*mm)
                 p = c.beginPath()
                 for i, (x, y) in enumerate(item["points"]):
                     (p.moveTo if i == 0 else p.lineTo)(float(x)*mm, float(y)*mm)
-                c.drawPath(p)
+                if item["kind"] == "polygon":
+                    p.close()
+                    c.setFillColorRGB(1, 1, 1)
+                    c.drawPath(p, fill=1, stroke=1)
+                else:
+                    c.drawPath(p)
             else:
                 c.setFont("Helvetica-Bold" if item["bold"] else "Helvetica", item["size"])
                 c.translate(item["x"]*mm, item["y"]*mm)
@@ -52,7 +60,10 @@ class Drawing:
         out = ['<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297">',
                '<rect width="210" height="297" fill="white"/>']
         for item in self.items:
-            if item["kind"] == "line":
+            if item["kind"] == "polygon":
+                pts = ' '.join(f'{x:.4f},{297-y:.4f}' for x, y in item["points"])
+                out.append(f'<polygon points="{pts}" fill="white" stroke="black" stroke-width="{item["width"]}" stroke-linejoin="round"/>')
+            elif item["kind"] == "line":
                 pts = ' '.join(f'{x:.4f},{297-y:.4f}' for x, y in item["points"])
                 dash = ' stroke-dasharray="1.5 .9"' if item["dashed"] else ''
                 out.append(f'<polyline points="{pts}" fill="none" stroke="black" stroke-width="{item["width"]}" stroke-linejoin="round"{dash}/>')

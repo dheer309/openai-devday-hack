@@ -38,6 +38,14 @@ Some allowed shape/proportion combinations are unprintable; a 422 with failed ch
 
 ## Export without the app
 
+For the standing TV-faced robot demo (two boxes plus optional flat arms, antenna and base), run:
+
+```powershell
+.\.venv\Scripts\python.exe -m foldable.standing_pet --output work/standing-bsod
+```
+
+This produces `standing-bsod-a4.pdf`, the matching SVG and a GLB of the two assembled boxes. It uses the existing Blender unfolding engine, 14 numbered tab joins, 6 mm tabs, and one A4 sheet. The assembled boxes are 54 mm tall; the antenna adds height. This is a standalone demo template inspired by the built-in BSOD pet; it is not an extension to the DesignSpec API. Optional flat parts are supplied on the print sheet and are not included in the box-only GLB. Legs are printed detail on the body, keeping a flat standing bottom. Glue the body's top to the marked underside of the head, then add the optional parts. Physical assembly remains untested.
+
 ```powershell
 .\.venv\Scripts\python.exe -m foldable.cli examples/robot.design.json --output work/robot
 .\.venv\Scripts\python.exe -m foldable.cli examples/cat.design.json --output work/cat
