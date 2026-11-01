@@ -82,7 +82,9 @@ Browser checks after merging Track A: load the saved example, rotate the returne
 
 Inspect the actual downloaded PDF and printer preview: **A4 portrait, single-sided, black on white, 100% / actual size**, with headers and footers off. Check for clipping and measure the labelled 20 mm scale segment. Print two hero copies and the robot fallback if permitted. Use the backend’s numbered seam pairs and closing order. Do not call the design physically tested until someone has cut, folded and assembled it.
 
-The backend, real PDF/print-preview inspection, print batch and physical assembly remain Track A/operator integration work. No printer-ready sample is claimed by this frontend-only branch.
+Verified on this branch: TypeScript check, production build, 19 focused contract/input/crop/proxy tests, live OpenAI text and selected-image interpretation, and a production browser check of the saved example, live text result, manual edits, sprite upload/frame selection, missing-backend error, and disabled PDF. The browser bundle was checked for accidental credential inclusion. Proxy tests use explicit test doubles; they are not evidence of a completed geometry integration.
+
+The real integration check currently stops at the unavailable geometry service, as expected. The backend, real GLB/net/PDF browser path, PDF/print-preview inspection, print batch and physical assembly remain Track A/operator integration work. No backend commit is integrated and no printer-ready sample is claimed by this frontend-only branch.
 
 ## References
 
