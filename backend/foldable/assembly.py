@@ -160,8 +160,12 @@ def export_assembly(design, nets, contacts, folder):
     out=[f'<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="{297*len(nets)}mm" viewBox="0 0 210 {297*len(nets)}">', f'<rect width="210" height="{297*len(nets)}" fill="white"/>']
     for i,(part,net) in enumerate(zip(design.parts,nets)):
         outside=_commands(part,net)
-        _canvas_draw(c,outside); c.showPage()
-        _canvas_draw(c,_commands(part,net,True,contacts[i],design.parts)); c.showPage()
+        _canvas_draw(c,outside)
+        c.setFillColor(HexColor('#333333')); c.setFont('Helvetica', 8)
+        c.drawRightString(200*mm, 286*mm, str(2*i+1)); c.showPage()
+        _canvas_draw(c,_commands(part,net,True,contacts[i],design.parts))
+        c.setFillColor(HexColor('#333333')); c.setFont('Helvetica', 8)
+        c.drawRightString(200*mm, 286*mm, str(2*i+2)); c.showPage()
         out.extend(_svg_draw(outside, i*297))
     c.save(); out.append('</svg>'); (folder/'net.svg').write_text('\n'.join(out),encoding='utf-8')
     scene=trimesh.Scene()
@@ -176,7 +180,7 @@ def export_assembly(design, nets, contacts, folder):
             else: coords=[(math.cos(a),math.sin(a)) for a in np.linspace(0,2*math.pi,49)[:-1]]
             verts=np.array([[(part.position.x+(art.x+dx*art.width/2-.5)*part.width_mm)/1000,
                              (part.position.y+(.5-art.y-dy*art.height/2)*part.height_mm)/1000,
-                             (part.position.z+part.depth_mm/2+.01+j*.001)/1000] for dx,dy in coords])
+                             (part.position.z+part.depth_mm/2+.05+j*.05)/1000] for dx,dy in coords])
             # Clockwise in image coordinates becomes counterclockwise in 3D.
             faces=[(0,k+1,k) for k in range(1,len(verts)-1)]
             decal=trimesh.Trimesh(vertices=verts,faces=faces,process=False)

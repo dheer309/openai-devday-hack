@@ -138,8 +138,10 @@ export default function ModelViewer({ modelUrl, onReady, onError }: Props) {
             if (!controls) return;
             const verticalFov = THREE.MathUtils.degToRad(camera.fov);
             const fitDistance = diameter / (2 * Math.tan(verticalFov / 2)) / Math.min(camera.aspect, 1);
-            camera.near = diameter / 1000;
-            camera.far = fitDistance * 100;
+            // Keep the depth range tight so closely layered printed artwork
+            // remains stable while the small physical model rotates.
+            camera.near = diameter / 20;
+            camera.far = fitDistance * 8;
             camera.position.copy(center).add(new THREE.Vector3(0.65, 0.38, 1.5).normalize().multiplyScalar(fitDistance * 1.15));
             camera.updateProjectionMatrix();
             controls.target.copy(center);

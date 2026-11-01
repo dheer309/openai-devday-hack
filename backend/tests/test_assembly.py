@@ -52,7 +52,10 @@ def test_two_part_output_has_duplex_pages_and_assembled_geometry(tmp_path, monke
     folder = tmp_path / result["model_url"].split("/")[3]
     assert result["stats"]["piece_count"] == 2
     assert result["stats"]["page_count"] == 4
-    assert len(PdfReader(folder / "net.pdf").pages) == 4
+    pages = PdfReader(folder / "net.pdf").pages
+    assert len(pages) == 4
+    for index, page in enumerate(pages, 1):
+        assert str(index) in page.extract_text().splitlines()
     model = trimesh.load(folder / "model.glb", force="scene")
     assert len(model.geometry) == 4  # two boxes plus their printed face marks
     assert np.allclose(model.bounds[:, 1], [-.045, .015], atol=.0001)
