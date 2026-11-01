@@ -7,10 +7,9 @@ import {
 } from "lucide-react";
 import ModelViewer from "@/components/ModelViewer";
 import ImageCropper from "@/components/ImageCropper";
-import PetSelector from "@/components/PetSelector";
 import { designSchema, renderResultSchema, REQUIRED_CHECKS, type DesignSpec, type RenderResult } from "@/lib/contracts";
 
-type InputType = "text" | "photo" | "chatgpt_pet";
+type InputType = "text" | "photo";
 type Busy = "example" | "ai" | "render" | null;
 type Source = "example" | "ai" | "manual";
 type Failure = { message: string; details: string[] };
@@ -44,10 +43,9 @@ function asFailure(error: unknown): Failure {
 }
 
 export default function Home() {
-  const [inputType, setInputType] = useState<InputType>("chatgpt_pet");
+  const [inputType, setInputType] = useState<InputType>("photo");
   const [text, setText] = useState("");
   const [image, setImage] = useState<string | null>(null);
-  const [selectedPet, setSelectedPet] = useState<{ id: string; name: string } | null>(null);
   const [design, setDesign] = useState<DesignSpec | null>(null);
   const [source, setSource] = useState<Source>("example");
   const [rendered, setRendered] = useState<RenderRecord | null>(null);
@@ -132,7 +130,7 @@ export default function Home() {
     try {
       const body = await readResponse(await fetch("/api/design", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input_type: inputType, text: inputType === "chatgpt_pet" && selectedPet ? `Pet name: ${selectedPet.name}. ${text}`.slice(0, 2000) : text, image_data_url: inputType === "text" ? null : image }), signal,
+        body: JSON.stringify({ input_type: inputType, text, image_data_url: inputType === "text" ? null : image }), signal,
       }));
       const parsed = designSchema.safeParse(body.design);
       if (!parsed.success || body.source !== "ai") throw { message: "AI did not return a supported design. Please retry or use the manual controls.", details: [] };
@@ -166,12 +164,7 @@ export default function Home() {
   const updateFace = (key: keyof DesignSpec["face"], value: string | boolean) => {
     if (design) updateDesign({ ...design, face: { ...design.face, [key]: value } });
   };
-  const receiveImage = useCallback((dataUrl: string | null) => { invalidate(); setImage(dataUrl); setSelectedPet(null); }, [invalidate]);
-  const receivePet = useCallback((dataUrl: string | null, pet?: { id: string; name: string }) => {
-    invalidate();
-    setImage(dataUrl);
-    setSelectedPet(dataUrl && pet ? pet : null);
-  }, [invalidate]);
+  const receiveImage = useCallback((dataUrl: string | null) => { invalidate(); setImage(dataUrl); }, [invalidate]);
   const modelReady = useCallback(() => {
     if (rendered && requestEpoch.current === rendered.epoch) {
       setModelLoaded(true);
@@ -203,13 +196,12 @@ export default function Home() {
           <aside className="editor-panel" aria-label="Design your companion">
             <form onSubmit={generate}>
               <div className="input-tabs" aria-label="Reference type">
-                {([{ id: "chatgpt_pet", label: "ChatGPT pets" }, { id: "photo", label: "Image" }, { id: "text", label: "Text" }] as const).map(item => (
+                {([{ id: "photo", label: "Image" }, { id: "text", label: "Text" }] as const).map(item => (
                   <button key={item.id} type="button" className={inputType === item.id ? "active" : ""} aria-pressed={inputType === item.id} onClick={() => {
-                    if (inputType !== item.id) { invalidate(); setInputType(item.id); setImage(null); setSelectedPet(null); }
+                    if (inputType !== item.id) { invalidate(); setInputType(item.id); setImage(null); }
                   }}>{item.label}</button>
                 ))}
               </div>
-              {inputType === "chatgpt_pet" && <PetSelector onChange={receivePet} disabled={!!busy} />}
               {inputType === "photo" && <ImageCropper onChange={receiveImage} disabled={!!busy} />}
               {inputType === "text" ? <div className="description-field">
                 <label className="field-label" htmlFor="description">Describe your character</label>
