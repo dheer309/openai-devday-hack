@@ -7,6 +7,8 @@ from reportlab.pdfgen.canvas import Canvas
 from reportlab.lib.colors import HexColor
 from reportlab.lib.units import mm
 import trimesh
+from shapely.geometry import Polygon
+from .geometry import make_solid
 from .engine import validate, bounds, Net, Placed, Seam, PAGE_AREA
 from .local_engine import solve_local
 from .export import edge_angle
@@ -24,6 +26,7 @@ def _contacts(parts):
         gap = right.position.x - right.width_mm / 2 - (left.position.x + left.width_mm / 2)
         if gap < 3.95:
             raise PrintError('Separate the left and right feet by at least 4 mm while keeping both attached to the body.', ['feet_gap'])
+    solids = [make_solid(part) for part in parts]
     contacts = [[] for _ in parts]
     adjacency = [set() for _ in parts]
     for i, a in enumerate(parts):
@@ -42,6 +45,22 @@ def _contacts(parts):
                 other=[k for k in range(3) if k != axis]
                 if abs(overlap[axis]) <= .05 and all(overlap[k] > 2 for k in other):
                     sign=1 if cb[axis]>ca[axis] else -1
+                    normal=np.zeros(3); normal[axis]=sign
+                    pa=next((p for p in solids[i].panels if np.dot(p.normal,normal) > .99999), None)
+                    pb=next((p for p in solids[j].panels if np.dot(p.normal,normal) < -.99999), None)
+                    if pa is None or pb is None:
+                        continue
+                    va=solids[i].vertices[list(pa.vertices)]+ca
+                    vb=solids[j].vertices[list(pb.vertices)]+cb
+                    contact=Polygon(va[:,other]).intersection(Polygon(vb[:,other]))
+                    if contact.is_empty or contact.area <= 4:
+                        continue
+                    xmin,ymin,xmax,ymax=contact.bounds
+                    if min(xmax-xmin,ymax-ymin) <= 2:
+                        continue
+                    # Axis-extreme faces of the supported prisms are rectangular.
+                    lo=lo.copy(); hi=hi.copy()
+                    lo[other]=[xmin,ymin]; hi[other]=[xmax,ymax]
                     contacts[i].append((j,axis,sign,lo,hi))
                     contacts[j].append((i,axis,-sign,lo,hi))
                     adjacency[i].add(j); adjacency[j].add(i)
@@ -74,16 +93,28 @@ def _contact_outline(part, net, contact):
     return np.array(points)
 
 
-def _front_art(part, net, item):
-    p = net.solid.panels[net.solid.front_panel]
-    placement = net.placed[net.solid.front_panel]
+def _art_outline(part, solid, item):
     if item.shape == 'rect':
         coords = [(-1,-1),(1,-1),(1,1),(-1,1)]
     else:
         coords = [(math.cos(a), math.sin(a)) for a in np.linspace(0, 2*math.pi, 49)[:-1]]
-    world = np.array([[((item.x + dx * item.width/2) - .5) * part.width_mm,
-                       (.5 - (item.y + dy * item.height/2)) * part.height_mm,
-                       part.depth_mm / 2] for dx,dy in coords])
+    art=Polygon([((item.x+dx*item.width/2-.5)*part.width_mm,
+                  (.5-item.y-dy*item.height/2)*part.height_mm) for dx,dy in coords])
+    panel=solid.panels[solid.front_panel]
+    face=Polygon(solid.vertices[list(panel.vertices),:2])
+    clipped=art.intersection(face)
+    if clipped.is_empty or clipped.geom_type != 'Polygon' or clipped.area < 1e-8:
+        return np.empty((0,2))
+    return np.asarray(clipped.exterior.coords[:-1])
+
+
+def _front_art(part, net, item):
+    p = net.solid.panels[net.solid.front_panel]
+    placement = net.placed[net.solid.front_panel]
+    outline = _art_outline(part, net.solid, item)
+    if not len(outline):
+        return np.empty((0,2))
+    world=np.column_stack((outline, np.full(len(outline), part.depth_mm/2)))
     local = np.column_stack(((world - p.origin) @ p.u, (world - p.origin) @ p.v))
     return local @ placement.rotation.T + placement.offset
 
@@ -98,7 +129,9 @@ def _commands(part, net, reverse=False, contacts=None, parts=None):
         commands.append(('text', 210-x if reverse else x, y, str(label), size))
     if not reverse:
         for p in net.placed.values(): poly(p.points, fill=part.color, stroke=None)
-        for art in part.artwork: poly(_front_art(part, net, art), fill=art.color, stroke=None)
+        for art in part.artwork:
+            points = _front_art(part, net, art)
+            if len(points): poly(points, fill=art.color, stroke=None)
     for edge in sorted(net.hinges):
         poly(net.edge_points(net.solid.edges[edge][0], edge), dash=True, width=.16)
     for seam in net.seams:
@@ -178,20 +211,21 @@ def export_assembly(design, nets, contacts, folder):
         out.extend(_svg_draw(outside, i*297))
     c.save(); out.append('</svg>'); (folder/'net.svg').write_text('\n'.join(out),encoding='utf-8')
     scene=trimesh.Scene()
-    for part in design.parts:
+    for part,net in zip(design.parts,nets):
         center=np.array([part.position.x,part.position.y,part.position.z])/1000
-        mesh=trimesh.creation.box(extents=np.array([part.width_mm,part.height_mm,part.depth_mm])/1000)
-        mesh.apply_translation(center)
+        solid=net.solid
+        mesh=trimesh.Trimesh(vertices=solid.vertices/1000+center,faces=solid.triangles(),process=False)
         mesh.visual.face_colors = list(bytes.fromhex(part.color[1:])) + [255]
         scene.add_geometry(mesh,node_name=part.id)
         for j,art in enumerate(part.artwork):
-            if art.shape == 'rect': coords=[(-1,-1),(1,-1),(1,1),(-1,1)]
-            else: coords=[(math.cos(a),math.sin(a)) for a in np.linspace(0,2*math.pi,49)[:-1]]
-            verts=np.array([[(part.position.x+(art.x+dx*art.width/2-.5)*part.width_mm)/1000,
-                             (part.position.y+(.5-art.y-dy*art.height/2)*part.height_mm)/1000,
-                             (part.position.z+part.depth_mm/2+.05+j*.05)/1000] for dx,dy in coords])
-            # Clockwise in image coordinates becomes counterclockwise in 3D.
-            faces=[(0,k+1,k) for k in range(1,len(verts)-1)]
+            outline=_art_outline(part,solid,art)
+            if not len(outline):
+                continue
+            verts=np.column_stack((outline[:,0]+part.position.x, outline[:,1]+part.position.y,
+                                  np.full(len(outline), part.position.z+part.depth_mm/2+.05+j*.05)))/1000
+            # Shapely polygons can be clockwise; ensure the decal faces forward.
+            area=np.sum(outline[:,0]*np.roll(outline[:,1],-1)-outline[:,1]*np.roll(outline[:,0],-1))
+            faces=[(0,k,k+1) if area > 0 else (0,k+1,k) for k in range(1,len(verts)-1)]
             decal=trimesh.Trimesh(vertices=verts,faces=faces,process=False)
             decal.visual.face_colors=list(bytes.fromhex(art.color[1:]))+[255]
             scene.add_geometry(decal,node_name=f'{part.id}_art_{j}')

@@ -21,14 +21,22 @@ const artworkSchema = z.object({
   shape: z.enum(["rect", "ellipse"]), x: z.number().min(0).max(1), y: z.number().min(0).max(1),
   width: z.number().min(0.02).max(1), height: z.number().min(0.02).max(1), color: colorSchema,
 }).strict();
-export const designV3Schema = z.object({
-  version: z.literal(3), name: nameSchema,
-  parts: z.array(z.object({
+const partV3Fields = {
     id: z.string().regex(/^[A-Za-z0-9_-]{1,24}$/),
-    width_mm: z.number().min(20).max(40), height_mm: z.number().min(20).max(40), depth_mm: z.number().min(20).max(40),
+    width_mm: z.number().min(15).max(40), height_mm: z.number().min(15).max(40), depth_mm: z.number().min(15).max(40),
     position: z.object({ x: z.number().min(-150).max(150), y: z.number().min(-150).max(150), z: z.number().min(-150).max(150) }).strict(),
     color: colorSchema, artwork: z.array(artworkSchema).max(20),
-  }).strict()).min(1).max(8),
+};
+const partShape = z.enum(["box", "rounded", "diamond", "crystal"]);
+// Existing V3 box designs may omit shape. The AI-specific schema requires it
+// so Structured Outputs always chooses a silhouette explicitly.
+export const designV3Schema = z.object({
+  version: z.literal(3), name: nameSchema,
+  parts: z.array(z.object({ ...partV3Fields, shape: partShape.optional() }).strict()).min(1).max(8),
+}).strict();
+export const aiDesignV3Schema = z.object({
+  version: z.literal(3), name: nameSchema,
+  parts: z.array(z.object({ ...partV3Fields, shape: partShape }).strict()).min(1).max(8),
 }).strict();
 export const designSchema = z.discriminatedUnion("version", [designV1Schema, designV2Schema, designV3Schema]);
 export type DesignSpec = z.infer<typeof designSchema>;
@@ -63,7 +71,7 @@ export function sameDesign(a: DesignSpec, b: DesignSpec): boolean {
     if (a.version !== 3 || b.version !== 3 || a.name !== b.name || a.parts.length !== b.parts.length) return false;
     return a.parts.every((part, index) => {
       const other = b.parts[index];
-      return part.id === other.id && part.width_mm === other.width_mm && part.height_mm === other.height_mm && part.depth_mm === other.depth_mm &&
+      return part.id === other.id && (part.shape ?? "box") === (other.shape ?? "box") && part.width_mm === other.width_mm && part.height_mm === other.height_mm && part.depth_mm === other.depth_mm &&
         part.position.x === other.position.x && part.position.y === other.position.y && part.position.z === other.position.z && part.color === other.color &&
         part.artwork.length === other.artwork.length && part.artwork.every((item, i) => {
           const v = other.artwork[i];

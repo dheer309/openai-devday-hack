@@ -76,10 +76,11 @@ class Artwork(StrictModel):
 
 
 class BoxPart(StrictModel):
+    shape: Literal["box", "rounded", "diamond", "crystal"] = "box"
     id: str = Field(min_length=1, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
-    width_mm: float = Field(ge=20, le=40)
-    height_mm: float = Field(ge=20, le=40)
-    depth_mm: float = Field(ge=20, le=40)
+    width_mm: float = Field(ge=15, le=40)
+    height_mm: float = Field(ge=15, le=40)
+    depth_mm: float = Field(ge=15, le=40)
     position: Position
     color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
     artwork: list[Artwork] = Field(max_length=20)

@@ -55,10 +55,7 @@ export default function Home() {
   const [busy, setBusy] = useState<Busy>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [modelFailure, setModelFailure] = useState<string | null>(null);
-  const [netFailure, setNetFailure] = useState<string | null>(null);
-  const [tab, setTab] = useState<"model" | "net">("model");
   const [modelLoaded, setModelLoaded] = useState(false);
-  const [netLoaded, setNetLoaded] = useState(false);
   const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
   const requestEpoch = useRef(0);
   const requestController = useRef<AbortController | null>(null);
@@ -68,9 +65,7 @@ export default function Home() {
     requestEpoch.current += 1;
     setRendered(null);
     setModelLoaded(false);
-    setNetLoaded(false);
     setModelFailure(null);
-    setNetFailure(null);
     setFailure(null);
     setBusy(null);
   }, []);
@@ -173,12 +168,12 @@ export default function Home() {
   }, [rendered]);
   const result = rendered?.data;
   const validationPassed = !!rendered && rendered.epoch === requestEpoch.current && !!result && result.validation.status === "passed" && requiredChecks(result.design).every(check => result.validation.checks.includes(check));
-  const canDownload = validationPassed && modelLoaded && netLoaded && !busy && !failure && !modelFailure && !netFailure;
+  const canDownload = validationPassed && modelLoaded && !busy && !failure && !modelFailure;
   const canInterpret = !busy && aiConfigured !== false && (inputType === "text" ? text.trim().length > 0 : !!image);
   const progressLabel = busy === "ai" ? "Interpreting your reference…" : busy === "render" ? "Building assets and checking the net…" : null;
 
   // The GLB viewer presents its own retryable model error.
-  const visibleError = failure?.message || netFailure;
+  const visibleError = failure?.message;
   const sourceLabel = source === "manual" ? "Edited design" : "AI interpretation";
   const hasPreview = !!design || !!busy;
   const printChecks = design ? requiredChecks(design) : [];
@@ -250,24 +245,17 @@ export default function Home() {
           {hasPreview && <section className="preview-panel" aria-label="Companion preview">
             <div className="preview-toolbar">
               <div className="preview-name"><h2>{design?.name.trim() || "Creating your paper pet"}</h2><span>{sourceLabel}</span></div>
-              <div className="preview-tabs" role="tablist" aria-label="Preview type">
-                <button id="model-tab" type="button" role="tab" aria-selected={tab === "model"} aria-controls="model-panel" className={tab === "model" ? "active" : ""} onClick={() => setTab("model")}>3D</button>
-                <button id="net-tab" type="button" role="tab" aria-selected={tab === "net"} aria-controls="net-panel" className={tab === "net" ? "active" : ""} onClick={() => setTab("net")}>Paper nets</button>
-              </div>
             </div>
             <div className="preview-stage" aria-busy={!!busy}>
               {rendered && result ? <>
-                <div className="model-pane" id="model-panel" role="tabpanel" aria-labelledby="model-tab" hidden={tab !== "model"}>
+                <div className="model-pane">
                   <ModelViewer key={`${rendered.epoch}:${result.model_url}`} modelUrl={result.model_url} onReady={modelReady} onError={modelError} />
-                </div>
-                <div className={result.design.version === 3 ? "net-pane multi-net" : "net-pane"} id="net-panel" role="tabpanel" aria-labelledby="net-tab" hidden={tab !== "net"}>
-                  <img key={`${rendered.epoch}:${result.preview_url}`} src={result.preview_url} alt={`A4 paper nets for ${result.design.name}`} onLoad={() => { if (requestEpoch.current === rendered.epoch) { setNetLoaded(true); setNetFailure(null); } }} onError={() => { if (requestEpoch.current === rendered.epoch) { setNetLoaded(false); setNetFailure("The paper net could not load. Retry the preview."); } }} />
                 </div>
               </> : <div className="preview-progress">{busy ? <LoaderCircle className="spin" size={25} strokeWidth={1.5} /> : <Box size={36} strokeWidth={1} />}<p role={busy ? "status" : undefined}>{busy ? progressLabel : "Update the preview to see your changes."}</p></div>}
             </div>
             <div className="print-panel">
               {visibleError && <div className="error-notice" role="alert"><CircleAlert size={16} /><div><p>{visibleError}</p>{failure && failure.details.length > 0 && <ul>{failure.details.map((detail, index) => <li key={`${detail}-${index}`}>{checkLabels[detail] || detail}</li>)}</ul>}<button type="button" className="text-button" disabled={!!busy} onClick={() => void buildPreview()}>Retry preview</button></div></div>}
-              {result && validationPassed && (!modelLoaded || !netLoaded) && !visibleError && !modelFailure && <p className="progress-note" role="status"><LoaderCircle className="spin" size={14} />Loading model and net…</p>}
+              {result && validationPassed && !modelLoaded && !visibleError && !modelFailure && <p className="progress-note" role="status"><LoaderCircle className="spin" size={14} />Loading model…</p>}
               <div className="download-row">
                 <details className="validation-details"><summary><span className={validationPassed ? "status-dot passed" : "status-dot"} />{validationPassed ? "Print checks passed" : "Print checks pending"}<ChevronDown size={13} /></summary><div><ul>{printChecks.map(check => <li key={check}>{validationPassed ? <Check size={12} /> : <span className="check-placeholder" />}{checkLabels[check]}</li>)}</ul><p>Software validation only. Physical assembly has not been checked.</p></div></details>
                 {canDownload && result ? <a className="download-button" href={result.pdf_url} download={`${result.design.name}.pdf`}><ArrowDownToLine size={16} />Download PDF</a> : <button className="download-button" type="button" disabled><ArrowDownToLine size={16} />Download PDF</button>}

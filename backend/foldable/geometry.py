@@ -74,7 +74,16 @@ def panels_from_points(points: np.ndarray) -> Solid:
 
 
 def make_solid(design: DesignV1 | DesignV2, scale: float = 1) -> Solid:
-    if isinstance(design, BoxPart) or design.shape == "box":
+    if isinstance(design, BoxPart) and design.shape != "box":
+        # Printable polygon prisms have a flat decorated front and genuine flat
+        # faces for glue joins; their 3D mesh and unfolding share these vertices.
+        profiles = {
+            "rounded": [(-.3,-.5),(.3,-.5),(.5,0),(.3,.5),(-.3,.5),(-.5,0)],
+            "diamond": [(-.16,-.5),(.16,-.5),(.5,0),(.16,.5),(-.16,.5),(-.5,0)],
+            "crystal": [(-.22,-.5),(.22,-.5),(.5,-.15),(.5,.15),(.22,.5),(-.22,.5),(-.5,.15),(-.5,-.15)],
+        }
+        points = np.array([(x,y,z) for x,y in profiles[design.shape] for z in (-.5,.5)])
+    elif design.shape == "box":
         points = np.array(list(itertools.product((-0.5, 0.5), repeat=3)))
     elif design.shape == "rounded":
         # A rotated icosahedron: twenty equilateral panels before proportions.

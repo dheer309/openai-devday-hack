@@ -2,13 +2,28 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { ImagePlus, Scissors, Upload, X } from "lucide-react";
-import { frameRect, MAX_IMAGE_BYTES, MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS, outputSize, type CropRect } from "@/lib/crop";
+import { frameRect, subjectBounds, MAX_IMAGE_BYTES, MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS, outputSize, type CropRect } from "@/lib/crop";
 import styles from "./StudioComponents.module.css";
 
 type Props = { onChange: (dataUrl: string | null) => void; disabled?: boolean; petMode?: boolean };
 type Source = { image: HTMLImageElement; url: string; name: string };
 
 function cropImage(image: HTMLImageElement, rect: CropRect) {
+  // Only trim backgrounds that are uniform around nearly the whole frame.
+  const sample = document.createElement("canvas");
+  const sampleSize = outputSize(rect.width, rect.height, 512);
+  sample.width = sampleSize.width; sample.height = sampleSize.height;
+  const sampleContext = sample.getContext("2d", { willReadFrequently: true });
+  if (sampleContext) {
+    sampleContext.drawImage(image, rect.x, rect.y, rect.width, rect.height, 0, 0, sample.width, sample.height);
+    const bounds = subjectBounds(sampleContext.getImageData(0, 0, sample.width, sample.height).data, sample.width, sample.height);
+    const scaleX = rect.width / sample.width, scaleY = rect.height / sample.height;
+    const x = Math.floor(bounds.x * scaleX), y = Math.floor(bounds.y * scaleY);
+    const right = Math.min(rect.width, Math.ceil((bounds.x + bounds.width) * scaleX));
+    const bottom = Math.min(rect.height, Math.ceil((bounds.y + bounds.height) * scaleY));
+    rect = { x: rect.x + x, y: rect.y + y, width: right - x, height: bottom - y };
+  }
+  sample.width = 0; sample.height = 0;
   const canvas = document.createElement("canvas");
   const dimensions = outputSize(rect.width, rect.height);
   canvas.width = dimensions.width;

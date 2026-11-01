@@ -77,3 +77,44 @@ def test_two_part_output_has_duplex_pages_and_assembled_geometry(tmp_path, monke
     assert np.allclose(model.bounds[:, 1], [-.045, .015], atol=.0001)
     assert '#a38769' in (folder / 'net.svg').read_text()
     assert '#eecbaa' in (folder / 'net.svg').read_text()
+
+
+@pytest.mark.parametrize('shape', ['box', 'rounded', 'diamond', 'crystal'])
+def test_shape_art_and_duplex_match_mesh(tmp_path, shape):
+    from foldable.assembly import _art_outline, render_assembly
+    from shapely.geometry import Polygon
+    import trimesh
+    from pypdf import PdfReader
+    design = DESIGN_ADAPTER.validate_python({'version': 3, 'name': 'Shape', 'parts': [{
+        'id': 'head', 'shape': shape, 'width_mm': 40, 'height_mm': 40, 'depth_mm': 25,
+        'position': {'x': 0, 'y': 0, 'z': 0}, 'color': '#5588cc',
+        'artwork': [{'shape': 'rect', 'x': .5, 'y': .5, 'width': .9, 'height': .9, 'color': '#ffeeaa'}],
+    }]})
+    nets = render_assembly(design, tmp_path)
+    solid = nets[0].solid
+    face = solid.panels[solid.front_panel]
+    face_polygon = Polygon(solid.vertices[list(face.vertices), :2])
+    outline = _art_outline(design.parts[0], solid, design.parts[0].artwork[0])
+    assert face_polygon.buffer(.00001).covers(Polygon(outline))
+    model = trimesh.load(tmp_path / 'model.glb', force='scene')
+    assert len(model.geometry) == 2
+    solid_mesh = model.geometry[next(name for name in model.geometry if not name.endswith('_art_0'))]
+    assert len(solid_mesh.faces) == len(solid.triangles())
+    assert len(PdfReader(tmp_path / 'net.pdf').pages) == 2
+    assert '#ffeeaa' in (tmp_path / 'net.svg').read_text()
+
+
+def test_shaped_contact_uses_real_flat_face():
+    design = DESIGN_ADAPTER.validate_python({'version': 3, 'name': 'Shape', 'parts': [
+        {'id': 'head', 'shape': 'diamond', 'width_mm': 40, 'height_mm': 40, 'depth_mm': 25,
+         'position': {'x': 0, 'y': 35, 'z': 0}, 'color': '#5588cc', 'artwork': []},
+        {'id': 'body', 'shape': 'box', 'width_mm': 30, 'height_mm': 30, 'depth_mm': 25,
+         'position': {'x': 0, 'y': 0, 'z': 0}, 'color': '#5588cc', 'artwork': []},
+    ]})
+    contact = _contacts(design.parts)[0][0]
+    assert contact[1] == 1
+    assert np.isclose(contact[4][0] - contact[3][0], 12.8)
+    # Bounding boxes still touch after this move, but actual diamond face does not.
+    design.parts[0].position.x = 20
+    with pytest.raises(PrintError, match='touch'):
+        _contacts(design.parts)

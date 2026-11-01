@@ -76,10 +76,16 @@ export default function ModelViewer({ modelUrl, onReady, onError }: Props) {
       removeContextListener = () => renderer?.domElement.removeEventListener("webglcontextlost", contextLost);
       host.appendChild(renderer.domElement);
       const scene = new THREE.Scene();
-      scene.add(new THREE.HemisphereLight(0xffffff, 0xd2ccc0, 2.6));
-      const key = new THREE.DirectionalLight(0xffffff, 3.2);
+      // Illuminate every side while retaining enough directional shading to
+      // make folds and the shape of the paper visible.
+      scene.add(new THREE.AmbientLight(0xffffff, 1.8));
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xffffff, 1.2));
+      const key = new THREE.DirectionalLight(0xffffff, 2.0);
       key.position.set(3, 5, 6);
       scene.add(key);
+      const fill = new THREE.DirectionalLight(0xffffff, 1.1);
+      fill.position.set(-4, -5, -6);
+      scene.add(fill);
       const camera = new THREE.PerspectiveCamera(35, 1, 0.001, 10000);
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
@@ -128,6 +134,20 @@ export default function ModelViewer({ modelUrl, onReady, onError }: Props) {
             return;
           }
           loaded = gltf.scene;
+          // The exported geometry has no explicit material. glTF defaults to
+          // metallic, which makes unlit sides look black without an environment
+          // map; paper should be matte and respond to ambient light instead.
+          loaded.traverse(object => {
+            if (!(object instanceof THREE.Mesh)) return;
+            const materials = Array.isArray(object.material) ? object.material : [object.material];
+            for (const material of materials) {
+              if (material instanceof THREE.MeshStandardMaterial) {
+                material.metalness = 0;
+                material.roughness = 1;
+                material.needsUpdate = true;
+              }
+            }
+          });
           const bounds = new THREE.Box3().setFromObject(loaded);
           const center = bounds.getCenter(new THREE.Vector3());
           const size = bounds.getSize(new THREE.Vector3());

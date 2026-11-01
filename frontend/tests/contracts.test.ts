@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import example from "../examples/robot.design.json";
-import { designV1Schema, designSchema, renderResultSchema, REQUIRED_CHECKS, sameDesign } from "../lib/contracts";
+import { aiDesignV3Schema, designV1Schema, designSchema, renderResultSchema, REQUIRED_CHECKS, sameDesign } from "../lib/contracts";
 
 const design = designV1Schema.parse(example);
 const validRender = () => ({
@@ -95,4 +95,14 @@ test("version 3 preserves individual part placements and colored artwork", () =>
   const result = { design: assembly, mode: "supported", model_url: "/api/assets/robot/model.glb", pdf_url: "/api/assets/robot/net.pdf", preview_url: "/api/assets/robot/net.svg", engine: "Foldable local unfold", interpretation: "procedural_assembly", validation: { status: "passed", checks: [...REQUIRED_CHECKS, "usable_tabs", "minimum_edge_size", "tab_receiver_fit", "assembly_complexity"] }, stats: { panel_count: 12, triangle_count: 24, page_count: 4, paper: "A4", piece_count: 2 } };
   assert.equal(renderResultSchema.safeParse(result).success, true);
   assert.equal(designSchema.safeParse({ ...assembly, parts: [] }).success, false);
+  // Old V3 designs are boxes; new AI designs must name every part's shape.
+  assert.equal(aiDesignV3Schema.safeParse(assembly).success, false);
+  const shaped = { ...assembly, parts: assembly.parts.map((p, i) => ({ ...p, shape: i ? "rounded" as const : "box" as const })) };
+  assert.equal(aiDesignV3Schema.safeParse(shaped).success, true);
+  assert.equal(sameDesign(assembly, { ...assembly, parts: assembly.parts.map(p => ({ ...p, shape: "box" as const })) }), true);
+  assert.equal(sameDesign(assembly, shaped), false);
+  for (const shape of ["box", "rounded", "diamond", "crystal"] as const) {
+    const changed = { ...shaped, parts: shaped.parts.map(p => ({ ...p, shape, width_mm: 15 })) };
+    assert.equal(aiDesignV3Schema.safeParse(changed).success, true);
+  }
 });

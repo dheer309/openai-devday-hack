@@ -17,3 +17,15 @@ test("prepared images preserve aspect ratio and do not upscale small references"
   assert.deepEqual(outputSize(4000, 2000), { width: 1600, height: 800 });
   assert.deepEqual(outputSize(100, 200), { width: 100, height: 200 });
 });
+
+test("trims a uniform border without cropping an uncertain background", async () => {
+  const { subjectBounds } = await import("../lib/crop");
+  const w = 20, h = 20, data = new Uint8ClampedArray(w * h * 4);
+  for (let i = 3; i < data.length; i += 4) data[i] = 255;
+  for (let y = 8; y < 12; y++) for (let x = 8; x < 12; x++) data[(y * w + x) * 4] = 255;
+  const result = subjectBounds(data, w, h);
+  assert.ok(result.width < w && result.height < h);
+  assert.ok(result.x <= 8 && result.x + result.width >= 12);
+  for (let x = 0; x < w; x++) data[x * 4] = 255;
+  assert.deepEqual(subjectBounds(data, w, h), { x: 0, y: 0, width: w, height: h });
+});
