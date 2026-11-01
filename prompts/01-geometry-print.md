@@ -1,5 +1,7 @@
 # Prompt 1: geometry and print engine
 
+**Scope update:** Read the current approved scope at the top of `AGENTS.md` first. The user chose OpenAI-only paid usage, multiple procedural shapes, exactly one A4 sheet, and Blender Export Paper Model as the established unfolding engine. Preserve v1 compatibility and implement the v2 contract. References below to a cube-only product or paid 3D providers are superseded.
+
 You are Track A of a two-person, three-hour hackathon build in https://github.com/dheer309/openai-devday-hack. Implement the geometry and printing half of Foldable AI. Read root `AGENTS.md` and `docs/interface-contract.md` first; treat their decisions and API schema as the shared brief.
 
 We need text/photo/ChatGPT-pet input to become a recognisable monochrome paper mascot. The printer is 30 minutes away, we have one printing visit, and a finished physical example is required. The dependable physical demo is a 40 mm box mascot with black facial details and a known cube net. Genuine image-to-3D is an optional second path after the print gate. Do not spend the deadline on an arbitrary-mesh unfolding algorithm.

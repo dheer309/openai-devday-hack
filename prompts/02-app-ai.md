@@ -1,5 +1,7 @@
 # Prompt 2: app, AI interpretation, and integration
 
+**Scope update:** Read the current approved scope at the top of `AGENTS.md` and the v2 extension in `docs/interface-contract.md`. OpenAI is the only paid API. AI selects a procedural shape (`box`, `rounded`, `diamond`, `crystal`), proportions, ears, and facial details; the backend uses Blender Export Paper Model to fit one A4 sheet. Preserve v1 while extending the frontend's strict schema and variable-count stats for v2. Use the backend `/design-schema` and `/examples` endpoints. The synchronous render/proxy flow remains valid. References below to a cube-only product or paid 3D providers are superseded.
+
 You are Track B of a two-person, three-hour hackathon build in https://github.com/dheer309/openai-devday-hack. Implement the product and AI half of Foldable AI and own end-to-end integration. Read root `AGENTS.md` and `docs/interface-contract.md` first; their scope, file ownership, timeline, and API contract are already agreed.
 
 The headline demo is "Bring your ChatGPT pet into the real world." A user enters text or uploads a photo/pet image, sees the exact printable 3D mascot, previews its paper net, and downloads a numbered A4 PDF. Everything printed is black outline detail on white paper. The physical demo uses a reliable 40 mm box mascot. Be honest that this supported mode is an AI-personalised stylised interpretation. Genuine generated 3D shapes are optional after a working print path.
