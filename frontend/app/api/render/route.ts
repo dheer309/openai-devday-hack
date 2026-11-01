@@ -4,12 +4,12 @@ import { geometryFetch, geometryJson } from "@/lib/server/geometry";
 import { ApiError, errorResponse, jsonResponse, readJson } from "@/lib/server/http";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 130;
 
 export async function POST(request: Request): Promise<Response> {
   try {
     const parsed = designSchema.safeParse(await readJson(request, 8 * 1024));
-    if (!parsed.success) throw new ApiError(422, "UNSUPPORTED_DESIGN", "Correct the mascot features before rendering. Only 40 mm box mascots are supported.",
+    if (!parsed.success) throw new ApiError(422, "UNSUPPORTED_DESIGN", "Correct the mascot features before rendering. Choose a supported shape, size, and proportions.",
       parsed.error.issues.map((issue) => `${issue.path.join(".") || "request"}: ${issue.message}`));
     const response = await geometryFetch("/render", request, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parsed.data),

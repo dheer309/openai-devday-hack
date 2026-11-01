@@ -27,10 +27,10 @@ export async function geometryFetch(path: string, request: Request, init: Reques
       ...init,
       cache: "no-store",
       redirect: "error",
-      signal: AbortSignal.any([request.signal, AbortSignal.timeout(45_000)]),
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(120_000)]),
     });
   } catch {
-    throw new ApiError(503, "GEOMETRY_UNAVAILABLE", "The geometry service is unavailable. Start Track A’s backend on port 8000, or check GEOMETRY_API_URL, then retry.");
+    throw new ApiError(503, "GEOMETRY_UNAVAILABLE", "The print engine is unavailable. Start the application with npm start from the repository root, then retry.");
   }
   if (!response.ok) {
     let value: unknown;

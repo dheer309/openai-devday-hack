@@ -138,3 +138,16 @@ test("asset proxy rejects traversal, foreign files and malformed IDs before fetc
   }
   assert.equal(fetchMock.mock.callCount(), 0);
 });
+
+test("health accepts the real v2 backend envelope and blocks an unavailable print engine", async () => {
+  const ready = { status: "ok", contract_version: 1, supported_versions: [1, 2], engine: "Export Paper Model 1.4.2", engine_ready: true };
+  let fetchMock = mock.method(globalThis, "fetch", async () => Response.json(ready));
+  let response = await health(getRequest());
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), ready);
+  fetchMock.mock.restore();
+  fetchMock = mock.method(globalThis, "fetch", async () => Response.json({ ...ready, engine_ready: false }));
+  response = await health(getRequest());
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error.code, "ENGINE_UNAVAILABLE");
+});
