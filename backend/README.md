@@ -4,7 +4,17 @@ Procedural low-poly mascots, matching monochrome artwork, GLB preview, and a val
 
 ## Run
 
-Tested on Windows x64 with Python 3.13 and bpy 5.2.3 LTS. From this directory:
+Use Python **3.11 or 3.13**. The Blender dependency file selects bpy 5.0.1 for Python 3.11 and bpy 5.2.3 for Python 3.13. Both satisfy the vendored engine's Blender 5.x requirement. Other Python versions require a separate compatible Blender executable via `BLENDER_BIN`.
+
+From this directory on macOS or Linux:
+
+```sh
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt -r requirements-blender.txt
+.venv/bin/python -m uvicorn foldable.app:app --host 127.0.0.1 --port 8000
+```
+
+The original Windows x64 implementation was tested with Python 3.13 and bpy 5.2.3. From this directory on Windows:
 
 ```powershell
 py -3.13 -m venv .venv
