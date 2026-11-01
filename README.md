@@ -8,7 +8,7 @@ This implementation lives on `build/app-ai`. Track A owns `backend/` on its own 
 
 ### Run the app
 
-Use Node.js 22 or newer and npm.
+Use Node.js 22 or newer and npm. Builds use two workers to limit local load.
 
 ```sh
 cd frontend
@@ -37,13 +37,22 @@ npm start
 
 ### Use the studio
 
-1. Start with the clearly labelled saved robot design, type a description, or upload a PNG/JPEG/WebP up to 5 MiB. Photos and ChatGPT pet references use the same interpretation route.
-2. For a sprite sheet, choose **Sprite sheet**, set its rows/columns, and click one frame. Only the selected local crop is sent to OpenAI. For uneven sheets, upload a cropped screenshot.
-3. Interpret the reference with AI, then correct the name, eyes, mouth, whiskers or outline markings manually.
-4. Build the printable model. The viewer loads the backend GLB; the net comes from its SVG. Editing invalidates the previous result immediately.
-5. Download enables only for the current design after all eight print checks pass and its model and net load successfully.
+1. Choose **Image** or **Text**, supply the reference, then select **Make paper pet**. Image uploads accept PNG/JPEG/WebP up to 5 MiB.
+2. Open **Adjust features** to correct the name, eyes, mouth, whiskers or markings, then select **Update preview**. **Use example** loads the saved robot without AI.
+3. The viewer loads the backend GLB; **Paper net** displays its SVG. Editing invalidates the previous result immediately.
+4. **Download PDF** enables only for the current design after all eight print checks pass and its model and net load successfully. Validation details stay under **Print checks**.
 
-Uploads stay in browser memory until you ask for interpretation. The server sends the description and selected image to OpenAI with response storage disabled. No account, gallery or ChatGPT sign-in integration is provided. The key never reaches the client.
+For an uploaded sprite sheet, open **Image options**, choose **Sprite sheet**, set its rows/columns, and select one frame. Only that crop is sent to OpenAI. This is an image tool, not a ChatGPT account integration.
+
+Uploads stay in browser memory until you ask for interpretation. The server sends the description and selected image to OpenAI with response storage disabled. The key never reaches the client.
+
+### ChatGPT account pets: access limitation
+
+The requested flow is per visitor: sign into their own ChatGPT account, list their own pets, select a thumbnail, and make a net. It is not implemented or represented by an upload tab. No local pet-library snapshot is used.
+
+[Sign in with ChatGPT](https://developers.openai.com/siwc/quickstart) documents identity and separately authorized Responses API access; no supported pet-library scope or endpoint was established. A registered website OAuth client alone would not supply pet-library access. The host-authenticated Pets connector in a Codex chat cannot be reused as credentials for other website visitors.
+
+[Connected-data Sites](https://learn.chatgpt.com/docs/sites/data-and-connections) can use each visitor’s own app connections in eligible workspace-private Sites, but Pets eligibility could not be verified with the tools available here. Completing the selector requires a sanctioned Pets endpoint/permission or confirmed eligible per-visitor connector access. No working-looking login button is shown while that requirement is unresolved.
 
 ## Integrate Track A
 
