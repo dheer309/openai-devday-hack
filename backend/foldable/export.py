@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from shapely.geometry import Polygon
 import trimesh
 
@@ -72,9 +73,10 @@ def edge_angle(points):
 
 def draw_net(design, net):
     d = Drawing()
-    d.text(10, 283, design.name, size=17, bold=True)
+    title_size = min(17, 17 * 190 * mm / max(stringWidth(design.name, "Helvetica-Bold", 17), 1))
+    d.text(10, 280, design.name, size=title_size, bold=True)
     extent = np.ptp(net.solid.vertices, axis=0)
-    d.text(10, 276, f'{len(net.solid.panels)} panels  /  {len(net.seams)} glue joins  /  {net.island_count} paper piece(s)', size=8)
+    d.text(10, 274, f'{len(net.solid.panels)} panels  /  {len(net.seams)} glue joins  /  {net.island_count} paper piece(s)', size=8)
     d.line([(10, 269), (21, 269)])
     d.text(24, 268, 'CUT', size=7)
     d.line([(43, 269), (54, 269)], dashed=True)

@@ -14,6 +14,7 @@ from foldable import service
 from foldable.app import app
 from foldable.artwork import projected_art, texture
 from foldable.engine import adapt, validate
+from foldable.export import draw_net
 from foldable.geometry import make_solid
 from foldable.models import DESIGN_ADAPTER, PrintError, REQUIRED_CHECKS
 
@@ -119,6 +120,22 @@ def test_v1_compatibility_and_v2_shape_variation(rendered):
     assert client.get('/health').json()['supported_versions'] == [1, 2]
     assert len(client.get('/examples').json()) == 4
     assert 'shape' in client.get('/design-schema').json()['properties']
+
+
+def test_long_printable_name_stays_inside_the_safe_page_margin(rendered, tmp_path):
+    design, _, _, net = rendered[1]['robot']
+    design = design.model_copy(update={'name': 'W' * 48})
+    path = tmp_path / 'long-name.pdf'
+    draw_net(design, net).pdf(path, design.name)
+    with pymupdf.open(path) as pdf:
+        page = pdf[0]
+        unit = 72 / 25.4
+        safe = pymupdf.Rect(10 * unit - .05, 10 * unit - .05,
+                            200 * unit + .05, 287 * unit + .05)
+        for block in page.get_text('dict')['blocks']:
+            for line in block.get('lines', []):
+                for span in line['spans']:
+                    assert safe.contains(pymupdf.Rect(span['bbox'])), span
 
 
 @pytest.mark.parametrize('mutation,failed_check', [
