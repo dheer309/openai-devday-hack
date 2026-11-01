@@ -25,6 +25,22 @@ def test_assembly_contact_and_unbuildable_positions():
         _contacts(assembly(-31).parts)
 
 
+def test_separate_feet_remain_attached():
+    box = {"height_mm": 20, "depth_mm": 25, "color": "#4775df", "artwork": []}
+    design = DESIGN_ADAPTER.validate_python({"version": 3, "name": "Bot", "parts": [
+        {**box, "id": "body", "width_mm": 32, "height_mm": 30, "position": {"x": 0, "y": 0, "z": 0}},
+        {**box, "id": "leftfoot", "width_mm": 20, "position": {"x": -12, "y": -25, "z": 0}},
+        {**box, "id": "rightfoot", "width_mm": 20, "position": {"x": 12, "y": -25, "z": 0}},
+    ]})
+    contacts = _contacts(design.parts)
+    assert {c[0] for c in contacts[0]} == {1, 2}
+    assert len(contacts[1]) == len(contacts[2]) == 1
+    design.parts[1].position.x = -10
+    design.parts[2].position.x = 10
+    with pytest.raises(PrintError, match="Separate the left and right feet"):
+        _contacts(design.parts)
+
+
 def test_duplex_mirrors_geometry_and_preserves_artwork(tmp_path):
     design = assembly()
     part = design.parts[0]

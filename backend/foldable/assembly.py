@@ -15,6 +15,15 @@ from .models import PrintError
 
 def _contacts(parts):
     """Find face-to-face joins and reject intersecting or disconnected boxes."""
+    def foot(part, side):
+        name = part.id.lower()
+        return side in name and any(word in name for word in ('foot', 'feet', 'leg'))
+    left = next((p for p in parts if foot(p, 'left')), None)
+    right = next((p for p in parts if foot(p, 'right')), None)
+    if left and right:
+        gap = right.position.x - right.width_mm / 2 - (left.position.x + left.width_mm / 2)
+        if gap < 3.95:
+            raise PrintError('Separate the left and right feet by at least 4 mm while keeping both attached to the body.', ['feet_gap'])
     contacts = [[] for _ in parts]
     adjacency = [set() for _ in parts]
     for i, a in enumerate(parts):
